@@ -23,10 +23,34 @@ Usage:
 
 import asyncio
 import time
+import platform
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Callable
-from evdev import InputDevice, ecodes
+from typing import Dict, List, Optional, Callable, Union
 import pygame
+
+# Platform detection
+IS_LINUX = platform.system() == 'Linux'
+IS_WINDOWS = platform.system() == 'Windows'
+IS_MACOS = platform.system() == 'Darwin'
+
+# Import platform-specific modules
+if IS_LINUX:
+    try:
+        from evdev import InputDevice, ecodes, list_devices
+        LINUX_AVAILABLE = True
+    except ImportError:
+        print("⚠️  evdev not installed. Install with: pip install evdev")
+        LINUX_AVAILABLE = False
+elif IS_WINDOWS:
+    try:
+        from windows_touchpad import WindowsTouchpadCapture, detect_windows_touchpad, list_windows_touchpads, TouchPoint as WinTouchPoint
+        WINDOWS_AVAILABLE = True
+    except ImportError:
+        print("⚠️  Windows touchpad support not available. Install with: pip install pywin32")
+        WINDOWS_AVAILABLE = False
+else:
+    LINUX_AVAILABLE = False
+    WINDOWS_AVAILABLE = False
 
 # Colors for different fingers
 COLORS = [
@@ -41,6 +65,193 @@ COLORS = [
     (0, 255, 0),     # Lime
     (255, 0, 255),   # Magenta
 ]
+
+
+def detect_trackpad() -> Optional[Union[str, bool]]:
+    """
+    Automatically detect trackpad device (cross-platform).
+    
+    Returns:
+        - Linux: Device path (e.g., '/dev/input/event14') or None
+        - Windows: True if touchpad detected, False otherwise
+        - macOS: None (not yet supported)
+    
+    Detection strategy:
+    - Linux: Look for devices with multi-touch capabilities
+    - Windows: Check for Windows Precision Touchpad support
+    """
+    if IS_WINDOWS and WINDOWS_AVAILABLE:
+        return detect_windows_touchpad()
+    
+    elif IS_LINUX and LINUX_AVAILABLE:
+        return _detect_linux_trackpad()
+    
+    elif IS_MACOS:
+        print("⚠️  macOS support not yet implemented")
+        return None
+    
+    else:
+        print(f"⚠️  Platform not supported: {platform.system()}")
+        return None
+
+
+def _detect_linux_trackpad() -> Optional[str]:
+    """
+    Detect trackpad on Linux using evdev.
+    
+    Returns:
+        Device path or None if not found
+    """
+    trackpad_keywords = [
+        'trackpad', 'touchpad', 'synaptics', 'elan', 'alps',
+        'bcm5974',  # Apple trackpads
+        'ps/2',     # Some laptop trackpads
+    ]
+    
+    candidates = []
+    
+    try:
+        devices = [InputDevice(path) for path in list_devices()]
+        
+        for device in devices:
+            try:
+                # Check if device has multi-touch capabilities
+                caps = device.capabilities()
+                
+                # Must have absolute positioning
+                if ecodes.EV_ABS not in caps:
+                    continue
+                
+                abs_events = caps[ecodes.EV_ABS]
+                abs_codes = [code for (code, _) in abs_events]
+                
+                # Must have multi-touch position tracking
+                has_mt_x = ecodes.ABS_MT_POSITION_X in abs_codes
+                has_mt_y = ecodes.ABS_MT_POSITION_Y in abs_codes
+                has_mt_slot = ecodes.ABS_MT_SLOT in abs_codes
+                has_mt_tracking = ecodes.ABS_MT_TRACKING_ID in abs_codes
+                
+                if not (has_mt_x and has_mt_y and has_mt_slot and has_mt_tracking):
+                    continue
+                
+                # Check device name for trackpad keywords
+                device_name_lower = device.name.lower()
+                is_trackpad_name = any(keyword in device_name_lower for keyword in trackpad_keywords)
+                
+                # Calculate capability score
+                capability_score = len(abs_codes)
+                
+                # Boost score if name matches
+                if is_trackpad_name:
+                    capability_score += 100
+                
+                candidates.append({
+                    'path': device.path,
+                    'name': device.name,
+                    'score': capability_score,
+                    'is_trackpad_name': is_trackpad_name
+                })
+                
+            except (OSError, IOError):
+                # Skip devices we can't access
+                continue
+    
+    except Exception as e:
+        print(f"⚠️  Error during device detection: {e}")
+        return None
+    
+    if not candidates:
+        return None
+    
+    # Sort by score (highest first)
+    candidates.sort(key=lambda x: x['score'], reverse=True)
+    
+    # Return best candidate
+    best = candidates[0]
+    return best['path']
+
+
+def list_all_trackpads() -> List[Dict[str, str]]:
+    """
+    List all potential trackpad devices (cross-platform).
+    
+    Returns:
+        List of dicts with device information
+    """
+    if IS_WINDOWS and WINDOWS_AVAILABLE:
+        return list_windows_touchpads()
+    
+    elif IS_LINUX and LINUX_AVAILABLE:
+        return _list_linux_trackpads()
+    
+    elif IS_MACOS:
+        print("⚠️  macOS support not yet implemented")
+        return []
+    
+    else:
+        return []
+
+
+def _list_linux_trackpads() -> List[Dict[str, str]]:
+    """
+    List all trackpad devices on Linux.
+    
+    Returns:
+        List of dicts with 'path', 'name', and 'score' keys
+    """
+    trackpad_keywords = [
+        'trackpad', 'touchpad', 'synaptics', 'elan', 'alps',
+        'bcm5974', 'ps/2'
+    ]
+    
+    candidates = []
+    
+    try:
+        devices = [InputDevice(path) for path in list_devices()]
+        
+        for device in devices:
+            try:
+                caps = device.capabilities()
+                
+                if ecodes.EV_ABS not in caps:
+                    continue
+                
+                abs_events = caps[ecodes.EV_ABS]
+                abs_codes = [code for (code, _) in abs_events]
+                
+                has_mt_x = ecodes.ABS_MT_POSITION_X in abs_codes
+                has_mt_y = ecodes.ABS_MT_POSITION_Y in abs_codes
+                has_mt_slot = ecodes.ABS_MT_SLOT in abs_codes
+                has_mt_tracking = ecodes.ABS_MT_TRACKING_ID in abs_codes
+                
+                if not (has_mt_x and has_mt_y and has_mt_slot and has_mt_tracking):
+                    continue
+                
+                device_name_lower = device.name.lower()
+                is_trackpad_name = any(keyword in device_name_lower for keyword in trackpad_keywords)
+                
+                capability_score = len(abs_codes)
+                if is_trackpad_name:
+                    capability_score += 100
+                
+                candidates.append({
+                    'path': device.path,
+                    'name': device.name,
+                    'score': capability_score,
+                    'is_trackpad_name': is_trackpad_name
+                })
+                
+            except (OSError, IOError):
+                continue
+    
+    except Exception as e:
+        print(f"⚠️  Error listing devices: {e}")
+        return []
+    
+    # Sort by score
+    candidates.sort(key=lambda x: x['score'], reverse=True)
+    
+    return candidates
 
 @dataclass
 class TouchPoint:
@@ -64,18 +275,57 @@ class GestureTrack:
 
 class TrackpadCapture:
     """
-    Handles trackpad device input and gesture tracking
+    Cross-platform trackpad device input and gesture tracking
     
     This class manages:
-    - Opening and reading from trackpad device
+    - Opening and reading from trackpad device (Linux/Windows)
     - Multi-touch event processing
     - Coordinate normalization
     - Gesture track management
+    
+    Automatically detects platform and uses appropriate backend:
+    - Linux: evdev
+    - Windows: Windows Touch API
     """
     
-    def __init__(self, device_path: str = "/dev/input/event14"):
-        self.device_path = device_path
-        self.device = None
+    def __init__(self, device_path: Optional[str] = None):
+        # Platform detection
+        self.platform = platform.system()
+        self.is_windows = IS_WINDOWS and WINDOWS_AVAILABLE
+        self.is_linux = IS_LINUX and LINUX_AVAILABLE
+        
+        # Windows backend
+        if self.is_windows:
+            self.backend = WindowsTouchpadCapture()
+            self.device_path = "Windows Touch API"
+            print(f"🔍 Using Windows Precision Touchpad")
+        
+        # Linux backend
+        elif self.is_linux:
+            # Auto-detect if not specified
+            if device_path is None:
+                device_path = detect_trackpad()
+                if device_path is None:
+                    print("❌ No trackpad detected!")
+                    print("\nAvailable devices with multi-touch:")
+                    devices = list_all_trackpads()
+                    if devices:
+                        for i, dev in enumerate(devices, 1):
+                            print(f"  {i}. {dev['path']}: {dev['name']} (score: {dev['score']})")
+                        print("\nSpecify device manually with: TrackpadCapture(device_path='/dev/input/eventX')")
+                    else:
+                        print("  (none found)")
+                    raise RuntimeError("No trackpad detected")
+                print(f"🔍 Auto-detected trackpad: {device_path}")
+            
+            self.device_path = device_path
+            self.device = None
+            self.backend = None
+        
+        else:
+            raise RuntimeError(f"Platform not supported: {self.platform}")
+        
+        # Common attributes (for Linux backend)
         
         # Trackpad dimensions (will be read from device)
         self.abs_x_min = 0
@@ -94,28 +344,34 @@ class TrackpadCapture:
     
     def open_device(self) -> bool:
         """Open the trackpad device and read capabilities"""
-        try:
-            self.device = InputDevice(self.device_path)
-            
-            # Read trackpad dimensions
-            caps = self.device.capabilities(verbose=True)
-            if ('EV_ABS', ecodes.EV_ABS) in caps:
-                abs_info = caps[('EV_ABS', ecodes.EV_ABS)]
-                for (code_name, code_num), absinfo in abs_info:
-                    if code_name == 'ABS_MT_POSITION_X':
-                        self.abs_x_min = absinfo.min
-                        self.abs_x_max = absinfo.max
-                    elif code_name == 'ABS_MT_POSITION_Y':
-                        self.abs_y_min = absinfo.min
-                        self.abs_y_max = absinfo.max
-            
-            print(f"✓ Opened device: {self.device.name}")
-            print(f"  Path: {self.device_path}")
-            print(f"  Trackpad range: X({self.abs_x_min}-{self.abs_x_max}), Y({self.abs_y_min}-{self.abs_y_max})")
-            return True
-        except Exception as e:
-            print(f"✗ Error opening device: {e}")
-            return False
+        if self.is_windows:
+            return self.backend.open_device()
+        
+        elif self.is_linux:
+            try:
+                self.device = InputDevice(self.device_path)
+                
+                # Read trackpad dimensions
+                caps = self.device.capabilities(verbose=True)
+                if ('EV_ABS', ecodes.EV_ABS) in caps:
+                    abs_info = caps[('EV_ABS', ecodes.EV_ABS)]
+                    for (code_name, code_num), absinfo in abs_info:
+                        if code_name == 'ABS_MT_POSITION_X':
+                            self.abs_x_min = absinfo.min
+                            self.abs_x_max = absinfo.max
+                        elif code_name == 'ABS_MT_POSITION_Y':
+                            self.abs_y_min = absinfo.min
+                            self.abs_y_max = absinfo.max
+                
+                print(f"✓ Opened device: {self.device.name}")
+                print(f"  Path: {self.device_path}")
+                print(f"  Trackpad range: X({self.abs_x_min}-{self.abs_x_max}), Y({self.abs_y_min}-{self.abs_y_max})")
+                return True
+            except Exception as e:
+                print(f"✗ Error opening device: {e}")
+                return False
+        
+        return False
     
     def normalize_coords(self, x: int, y: int) -> tuple:
         """Normalize trackpad coordinates to screen coordinates"""
@@ -136,34 +392,64 @@ class TrackpadCapture:
     
     def start_capture(self):
         """Start capturing gestures"""
-        self.is_capturing = True
-        self.gesture_tracks.clear()
-        self.completed_tracks.clear()
+        if self.is_windows:
+            self.backend.start_capture()
+        else:
+            self.is_capturing = True
+            self.gesture_tracks.clear()
+            self.completed_tracks.clear()
     
     def stop_capture(self):
         """Stop capturing gestures"""
-        self.is_capturing = False
+        if self.is_windows:
+            self.backend.stop_capture()
+        else:
+            self.is_capturing = False
     
     def clear_gestures(self):
         """Clear all gesture data"""
-        self.gesture_tracks.clear()
-        self.completed_tracks.clear()
+        if self.is_windows:
+            self.backend.clear_gestures()
+        else:
+            self.gesture_tracks.clear()
+            self.completed_tracks.clear()
     
-    def get_all_tracks(self) -> List[GestureTrack]:
+    def get_all_tracks(self) -> List:
         """Get all tracks (active + completed)"""
-        return list(self.gesture_tracks.values()) + self.completed_tracks
+        if self.is_windows:
+            # Convert Windows format to GestureTrack format
+            tracks = []
+            for i, points in enumerate(self.backend.get_all_tracks()):
+                if points:
+                    color = COLORS[i % len(COLORS)]
+                    track = GestureTrack(i, color)
+                    track.points = points
+                    track.is_active = False
+                    tracks.append(track)
+            return tracks
+        else:
+            return list(self.gesture_tracks.values()) + self.completed_tracks
     
     async def process_device_events(self, on_finger_down: Optional[Callable] = None,
                                     on_finger_up: Optional[Callable] = None,
                                     on_point_added: Optional[Callable] = None):
         """
-        Process trackpad events asynchronously
+        Process trackpad events asynchronously (cross-platform)
         
         Callbacks:
             on_finger_down(slot_id): Called when finger touches trackpad
             on_finger_up(slot_id, track): Called when finger lifts
             on_point_added(slot_id, x, y): Called when point is added
         """
+        if self.is_windows:
+            # Windows backend handles events via pygame
+            await self.backend.process_device_events(on_finger_down, on_finger_up, on_point_added)
+        
+        elif self.is_linux:
+            await self._process_linux_events(on_finger_down, on_finger_up, on_point_added)
+    
+    async def _process_linux_events(self, on_finger_down, on_finger_up, on_point_added):
+        """Process Linux evdev events"""
         current_slot = 0
         slot_positions = {}
         slots_updated_this_frame = set()
@@ -395,11 +681,34 @@ async def run_capture_loop(capture: TrackpadCapture,
     running = True
     needs_redraw = True
     
+    # Windows touch handling
+    is_windows = capture.is_windows if hasattr(capture, 'is_windows') else False
+    
     while running:
         # Handle pygame events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            
+            # Windows touch events
+            elif is_windows and event.type == pygame.FINGERDOWN:
+                if capture.backend:
+                    x = int(event.x * visualizer.width)
+                    y = int(event.y * visualizer.height)
+                    capture.backend.process_touch_down(event.finger_id, x, y)
+                needs_redraw = True
+            
+            elif is_windows and event.type == pygame.FINGERMOTION:
+                if capture.backend:
+                    x = int(event.x * visualizer.width)
+                    y = int(event.y * visualizer.height)
+                    capture.backend.process_touch_move(event.finger_id, x, y)
+                needs_redraw = True
+            
+            elif is_windows and event.type == pygame.FINGERUP:
+                if capture.backend:
+                    capture.backend.process_touch_up(event.finger_id)
+                needs_redraw = True
             
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
@@ -453,8 +762,9 @@ async def run_capture_loop(capture: TrackpadCapture,
 async def example_usage():
     """Example of how to use the library"""
     
-    # Create instances
-    capture = TrackpadCapture(device_path="/dev/input/event14")
+    # Create instances (auto-detects trackpad)
+    capture = TrackpadCapture()  # Auto-detect trackpad
+    # Or specify manually: capture = TrackpadCapture(device_path="/dev/input/event14")
     visualizer = GestureVisualizer(width=1200, height=800, title="My Gesture App")
     
     # Custom callback when gesture is complete

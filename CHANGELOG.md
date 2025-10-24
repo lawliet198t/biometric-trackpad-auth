@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Cross-Platform Support 🎉
+- **Windows Support**
+  - `windows_touchpad.py`: Windows Precision Touchpad backend
+  - Windows Touch API integration for multi-touch input
+  - Automatic Windows platform detection
+  - Compatible interface with Linux backend
+  - Support for Windows 10/11 Precision Touchpads
+
+- **Automatic Platform Detection**
+  - Detects Linux, Windows, or macOS automatically
+  - Loads appropriate backend based on platform
+  - No platform-specific code needed in user scripts
+  - Seamless cross-platform experience
+
+- **Automatic Trackpad Detection**
+  - `detect_trackpad()` function for automatic device detection (cross-platform)
+  - `list_all_trackpads()` function to list all available trackpad devices
+  - Linux: Intelligent scoring based on device capabilities and name matching
+  - Windows: Windows Precision Touchpad detection
+  - Support for multiple trackpad types (ELAN, Synaptics, ALPS, BCM5974, PS/2)
+  - `detect_trackpad.py` utility script for testing detection (cross-platform)
+  - `test_detection.py` test suite for validation
+  - `setup_venv.sh` script for easy virtual environment setup
+
+### Changed
+- **Platform-Aware Dependencies**
+  - `requirements.txt` now uses platform markers
+  - `evdev` only installed on Linux
+  - `pywin32` only installed on Windows
+  - Automatic dependency resolution based on platform
+
+- **Cross-Platform TrackpadCapture**
+  - `TrackpadCapture` now works on Linux and Windows
+  - Automatic backend selection based on platform
+  - Auto-detects trackpad by default (device_path optional on Linux)
+  - Unified API across platforms
+
+- **Updated Scripts**
+  - `realtime_trainer.py` now works on Windows
+  - `realtime_verify.py` now works on Windows
+  - All scripts automatically detect platform
+  - Updated README with cross-platform documentation
+
+### Improved
+- No more manual device path configuration needed
+- No more platform-specific code in user scripts
+- Better user experience for first-time setup on any platform
+- Clearer error messages with helpful suggestions
+- Comprehensive device detection with fallback options
+- Windows users can now use the system without Linux VM!
+
 ### Planned
 - Stage 2 CNN-based shape verification
 - Windows support (alternative to evdev)

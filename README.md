@@ -2,13 +2,25 @@
 
 A pure motion dynamics biometric authentication system using trackpad gestures. Works with ELAN trackpads providing only (X, Y, Timestamp) data - no pressure or contact area needed!
 
-> ⚠️ **Platform Support**: Currently supports **Linux only**. Windows support is not available due to dependency on Linux's `evdev` interface for input device access.
+✨ **Cross-Platform Support**: Works on **Linux** and **Windows**! Automatically detects your platform and uses the appropriate backend.
 
 ![Python](https://img.shields.io/badge/python-3.7+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Platform](https://img.shields.io/badge/platform-Linux-orange.svg)
+![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-blue.svg)
 
 ## 🎯 Features
+
+- **Cross-Platform Support** 🆕
+  - **Linux**: evdev backend for multi-touch trackpads
+  - **Windows**: Windows Precision Touchpad API
+  - Automatic platform detection
+  - No platform-specific code needed!
+
+- **Automatic Trackpad Detection**
+  - Automatically finds your trackpad device
+  - No manual device path configuration needed
+  - Intelligent scoring based on capabilities
+  - Fallback to manual specification if needed (Linux)
 
 - **Advanced Biometric Feature Extraction**
   - Velocity, Acceleration, Jerk (smoothness)
@@ -35,34 +47,74 @@ A pure motion dynamics biometric authentication system using trackpad gestures. 
 
 ### Platform
 - **Linux** (Ubuntu, Debian, Fedora, Arch, etc.)
-- **NOT supported on Windows** (requires Linux evdev interface)
-- macOS support is untested
+- **Windows** (10/11 with Precision Touchpad)
+- macOS support coming soon
 
 ### Software
 - Python 3.7+
-- ELAN trackpad (or compatible multi-touch trackpad)
+- **Linux**: Multi-touch trackpad (ELAN, Synaptics, etc.)
+- **Windows**: Windows Precision Touchpad
 
 ### Python Packages
+The system automatically installs the correct packages for your platform:
+
 ```bash
-pip install numpy pygame evdev
+pip install -r requirements.txt
 ```
+
+**Platform-specific dependencies:**
+- **Linux**: `evdev` (for input device access)
+- **Windows**: `pywin32` (for Windows Touch API)
+- **All platforms**: `numpy`, `pygame`
 
 ## 🚀 Quick Start
 
-### 1. Find Your Trackpad Device
+### 1. Setup Environment
 
-List available input devices:
+Install dependencies:
+
+**Linux/macOS:**
 ```bash
-python3 trackpad_visualizer.py --list-devices
+# Option 1: Use virtual environment (recommended)
+./setup_venv.sh
+source venv/bin/activate
+
+# Option 2: System-wide install (if allowed)
+pip3 install -r requirements.txt
 ```
 
-Look for your trackpad (usually contains "ELAN" or "Touchpad"). Note the device path (e.g., `/dev/input/event14`).
+**Windows:**
+```cmd
+REM Option 1: Use virtual environment (recommended)
+setup_venv.bat
+venv\Scripts\activate.bat
 
-### 2. Train Your Baseline
+REM Option 2: System-wide install
+pip install -r requirements.txt
+```
 
-Collect 10 training samples of your gesture:
+### 2. Detect Your Trackpad (Optional)
+
+The system now **automatically detects** your trackpad! To verify detection:
 ```bash
-python3 realtime_verifier_advanced.py --device /dev/input/event14 --samples 10
+python3 detect_trackpad.py
+```
+
+This will show:
+- Auto-detected trackpad device
+- All available trackpad devices
+- Device scores and capabilities
+
+### 3. Train Your Baseline
+
+Collect 10 training samples of your gesture (trackpad auto-detected):
+```bash
+python3 realtime_trainer.py --samples 10
+```
+
+Or specify device manually:
+```bash
+python3 realtime_trainer.py --device /dev/input/event14 --samples 10
 ```
 
 **Instructions:**
@@ -71,11 +123,16 @@ python3 realtime_verifier_advanced.py --device /dev/input/event14 --samples 10
 - Baseline will be learned automatically after 10 samples
 - Saves to `baseline.pkl`
 
-### 3. Verify Gestures
+### 4. Verify Gestures
 
-Use your trained baseline to verify new gestures:
+Use your trained baseline to verify new gestures (trackpad auto-detected):
 ```bash
-python3 realtime_verify_with_display.py --baseline baseline.pkl --device /dev/input/event14
+python3 realtime_verify.py --baseline baseline.pkl
+```
+
+Or specify device manually:
+```bash
+python3 realtime_verify.py --baseline baseline.pkl --device /dev/input/event14
 ```
 
 **Features:**
@@ -88,10 +145,14 @@ python3 realtime_verify_with_display.py --baseline baseline.pkl --device /dev/in
 ```
 .
 ├── advanced_biometrics.py           # Core biometric feature extraction
-├── realtime_verifier_advanced.py   # Training mode
-├── realtime_verify_with_display.py # Verification mode with live display
-├── trackpad_lib.py                 # Reusable trackpad capture library
+├── realtime_trainer.py   # Training mode
+├── realtime_verify.py # Verification mode with live display
+├── trackpad_lib.py                 # Cross-platform trackpad capture library
+├── windows_touchpad.py             # Windows Precision Touchpad backend
 ├── trackpad_visualizer.py          # Complete gesture visualizer
+├── detect_trackpad.py              # Cross-platform trackpad detection utility
+├── setup_venv.sh                   # Virtual environment setup script (Linux/macOS)
+├── requirements.txt                # Platform-aware Python dependencies
 └── README.md                       # This file
 ```
 
@@ -103,23 +164,38 @@ python3 realtime_verify_with_display.py --baseline baseline.pkl --device /dev/in
 - `BiometricBaseline`: Learn and store baseline from training samples
 - `MultiStageVerifier`: Multi-stage verification with strict gating
 
-**`realtime_verifier_advanced.py`**
+**`realtime_trainer.py`**
 - Training mode - collect samples and learn baseline
 - Collects N training samples
 - Learns biometric baseline automatically
 - Saves baseline to `baseline.pkl`
 
-**`realtime_verify_with_display.py`**
+**`realtime_verify.py`**
 - Verification mode - load baseline and verify gestures
 - Shows real-time metrics while drawing
 - Live verification scores (Stage 1, Stage 3, Overall)
 - Instant pass/fail feedback
 
 **`trackpad_lib.py`**
-- Reusable trackpad capture and visualization library
-- `TrackpadCapture`: Handle device input and gesture tracking
+- Cross-platform trackpad capture and visualization library
+- `TrackpadCapture`: Handle device input and gesture tracking (Linux/Windows)
 - `GestureVisualizer`: Pygame visualization
+- `detect_trackpad()`: Automatic trackpad detection (cross-platform)
+- `list_all_trackpads()`: List all available trackpad devices
 - Multi-touch support
+- Automatic platform detection and backend selection
+
+**`windows_touchpad.py`**
+- Windows Precision Touchpad backend
+- `WindowsTouchpadCapture`: Windows Touch API integration
+- Compatible interface with Linux backend
+- Multi-touch gesture support via Windows Touch API
+
+**`detect_trackpad.py`**
+- Cross-platform trackpad detection utility
+- Shows all detected trackpad devices
+- Displays device capabilities and scores
+- Provides usage examples for your platform
 
 **`trackpad_visualizer.py`**
 - Complete trackpad gesture visualizer with feature extraction
@@ -129,19 +205,31 @@ python3 realtime_verify_with_display.py --baseline baseline.pkl --device /dev/in
 
 ## 💡 Usage Examples
 
-### Basic Training (10 samples)
+### Detect Trackpad
 ```bash
-python3 realtime_verifier_advanced.py --device /dev/input/event14 --samples 10
+python3 detect_trackpad.py
+```
+
+### Basic Training (10 samples, auto-detect)
+```bash
+python3 realtime_trainer.py --samples 10
 ```
 
 ### Extended Training (20 samples for better accuracy)
 ```bash
-python3 realtime_verifier_advanced.py --device /dev/input/event14 --samples 20
+python3 realtime_trainer.py --samples 20
 ```
 
-### Verify with Saved Baseline
+### Verify with Saved Baseline (auto-detect)
 ```bash
-python3 realtime_verify_with_display.py --baseline baseline.pkl --device /dev/input/event14
+python3 realtime_verify.py --baseline baseline.pkl
+```
+
+### Manual Device Specification
+```bash
+# If auto-detection fails, specify device manually
+python3 realtime_trainer.py --device /dev/input/event14 --samples 10
+python3 realtime_verify.py --baseline baseline.pkl --device /dev/input/event14
 ```
 
 ### Visualize and Export Gestures
@@ -206,15 +294,25 @@ Total distance traveled while drawing. Should be consistent for the same gesture
 - Verify your gesture meets minimum requirements
 
 ### Can't find trackpad device
-- Run: `python3 trackpad_visualizer.py --list-devices`
-- Look for device with "ELAN", "Touchpad", or "Touch Pad"
-- Try different event numbers (event12, event13, event14, etc.)
+- Run: `python3 detect_trackpad.py` to see auto-detection results
+- The system automatically detects trackpads with multi-touch support
+- If auto-detection fails, manually specify: `--device /dev/input/eventX`
 - Check permissions: `sudo chmod 666 /dev/input/event*`
+- Add yourself to input group: `sudo usermod -a -G input $USER` (then log out/in)
 
-### Permission denied on device
+### Permission denied on device (Linux)
 - Add yourself to input group: `sudo usermod -a -G input $USER`
 - Log out and log back in
 - Or run with sudo (not recommended)
+
+### Windows touchpad not detected
+- Ensure Windows Precision Touchpad is enabled:
+  - Settings > Devices > Touchpad
+  - Make sure touchpad is enabled
+- Check if your laptop has Precision Touchpad:
+  - Most modern laptops (2016+) have it
+  - Look for "Precision Touchpad" in device settings
+- Try running as administrator (may help with permissions)
 
 ### Real-time metrics not updating
 - Draw more points (draw slower or longer path)
@@ -313,10 +411,32 @@ For best results, your gesture should:
 
 ## 🛠️ Technical Details
 
+### Automatic Trackpad Detection
+
+**Linux:**
+1. Scans all `/dev/input/event*` devices
+2. Checks for multi-touch capabilities:
+   - `ABS_MT_POSITION_X` and `ABS_MT_POSITION_Y` (position tracking)
+   - `ABS_MT_SLOT` (multi-finger support)
+   - `ABS_MT_TRACKING_ID` (finger identification)
+3. Scores devices based on:
+   - Device name keywords (trackpad, touchpad, synaptics, elan, etc.)
+   - Number of capabilities
+4. Selects the highest-scoring device
+
+**Windows:**
+1. Checks for Windows Precision Touchpad support
+2. Uses Windows Touch API for multi-touch input
+3. Automatically enabled if touchpad is detected
+
+**Supported trackpad types:**
+- **Linux**: ELAN, Synaptics, ALPS, Apple BCM5974, PS/2, any multi-touch evdev device
+- **Windows**: Windows Precision Touchpad (most modern laptops)
+
 ### Hardware Requirements
-- ELAN trackpad (or compatible)
-- Linux with evdev support
-- Multi-touch capability
+- **Linux**: Multi-touch trackpad with evdev support (ELAN, Synaptics, or compatible)
+- **Windows**: Windows Precision Touchpad (most modern laptops)
+- Multi-touch capability (2+ fingers)
 
 ### Data Captured
 - X, Y coordinates (absolute position)

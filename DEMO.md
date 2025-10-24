@@ -64,7 +64,7 @@ Press `Q` to quit when ready.
 Now train your baseline with 10 samples:
 
 ```bash
-python3 realtime_verifier_advanced.py --device /dev/input/event14 --samples 10
+python3 realtime_trainer.py --device /dev/input/event14 --samples 10
 ```
 
 **Instructions:**
@@ -106,7 +106,7 @@ python3 realtime_verifier_advanced.py --device /dev/input/event14 --samples 10
 Now test your trained baseline:
 
 ```bash
-python3 realtime_verify_with_display.py --baseline baseline.pkl --device /dev/input/event14
+python3 realtime_verify.py --baseline baseline.pkl --device /dev/input/event14
 ```
 
 **Try these scenarios:**
@@ -210,10 +210,10 @@ Test with multiple attempts:
 
 ```bash
 # Train with more samples for better accuracy
-python3 realtime_verifier_advanced.py --device /dev/input/event14 --samples 20
+python3 realtime_trainer.py --device /dev/input/event14 --samples 20
 
 # Verify multiple times
-python3 realtime_verify_with_display.py --baseline baseline.pkl --device /dev/input/event14
+python3 realtime_verify.py --baseline baseline.pkl --device /dev/input/event14
 ```
 
 Try 10 verification attempts:

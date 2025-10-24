@@ -101,7 +101,7 @@ class AdvancedBiometricVerifier:
             print(f"\n✓ Baseline saved to {baseline_file}")
             print("\n✓ Baseline learned! Ready to verify.")
             print(f"\nTo use this baseline later:")
-            print(f"  python3 realtime_verify_with_display.py --baseline {baseline_file}")
+            print(f"  python3 realtime_verify.py --baseline {baseline_file}")
             return True
         
         return False
@@ -130,7 +130,7 @@ class AdvancedBiometricVerifier:
 async def main():
     import argparse
     parser = argparse.ArgumentParser(description="Advanced Biometric Verifier")
-    parser.add_argument('--device', default='/dev/input/event14', help='Input device')
+    parser.add_argument('--device', default=None, help='Input device (auto-detects if not specified)')
     parser.add_argument('--samples', type=int, default=10, help='Training samples')
     args = parser.parse_args()
     

@@ -5,7 +5,7 @@ Real-Time Verification with Live Display
 Load a pre-trained baseline and verify gestures with real-time metrics display.
 
 Usage:
-  python3 realtime_verify_with_display.py --baseline baseline.pkl
+  python3 realtime_verify.py --baseline baseline.pkl
 
 Shows live updates as you draw:
 - Duration, points, path length
@@ -28,9 +28,10 @@ from advanced_biometrics import AdvancedFeatureExtractor, BiometricBaseline, Mul
 class RealtimeVerifier:
     """Real-time verifier with live display - loads pre-trained baseline"""
     
-    def __init__(self, baseline_path: str):
+    def __init__(self, baseline_path: str, verbose: bool = False):
         self.baseline_path = baseline_path
         self.extractor = AdvancedFeatureExtractor()
+        self.verbose = verbose  # Control detailed logging
         
         # Load baseline
         self.baseline = self.load_baseline(baseline_path)
@@ -58,6 +59,10 @@ class RealtimeVerifier:
         self.min_points_for_realtime = 10
         self.last_realtime_verify = 0
         self.realtime_verify_interval = 0.15  # Verify every 150ms
+        
+        # Console output throttling
+        self.last_console_print = 0
+        self.console_print_interval = 1.0  # Print detailed logs max once per second
     
     def load_baseline(self, path: str) -> BiometricBaseline:
         """Load baseline from file"""
@@ -74,12 +79,12 @@ class RealtimeVerifier:
         except Exception as e:
             print(f"❌ Error loading baseline: {e}")
             print(f"\nTo create a baseline, run:")
-            print(f"  python3 realtime_verifier_advanced.py --samples 10")
+            print(f"  python3 realtime_trainer.py --samples 10")
             print(f"  (This will save baseline.pkl automatically)")
             sys.exit(1)
     
     def update_realtime_metrics(self, tracks: List[GestureTrack]):
-        """Update real-time metrics during drawing"""
+        """Update real-time metrics during drawing (with throttled logging)"""
         if not tracks or len(tracks[0].points) < 2:
             return
         
@@ -119,6 +124,12 @@ class RealtimeVerifier:
                 self.realtime_metrics['stage1_score'] = result['stage1_score']
                 self.realtime_metrics['stage3_score'] = result['stage3_score']
                 self.realtime_metrics['overall_score'] = result['overall_score']
+                
+                # Throttled verbose logging (only if enabled and interval passed)
+                if self.verbose and (current_time - self.last_console_print >= self.console_print_interval):
+                    self.last_console_print = current_time
+                    print(f"[Realtime] Points: {len(points)}, Duration: {features['duration']:.2f}s, "
+                          f"Jerk CV: {features['jerk_cv']:.2f}, Score: {result['overall_score']:.0f}%")
     
     def verify(self, tracks: List[GestureTrack]) -> Dict:
         """Verify a completed gesture"""
@@ -142,7 +153,8 @@ async def main():
     import argparse
     parser = argparse.ArgumentParser(description="Real-Time Verifier with Display")
     parser.add_argument('--baseline', required=True, help='Baseline file (baseline.pkl)')
-    parser.add_argument('--device', default='/dev/input/event14', help='Input device')
+    parser.add_argument('--device', default=None, help='Input device (auto-detects if not specified)')
+    parser.add_argument('--verbose', action='store_true', help='Enable verbose realtime logging (throttled to 1/sec)')
     args = parser.parse_args()
     
     # Create instances
@@ -152,9 +164,9 @@ async def main():
         height=900,
         title="Real-Time Verification with Display"
     )
-    verifier = RealtimeVerifier(baseline_path=args.baseline)
+    verifier = RealtimeVerifier(baseline_path=args.baseline, verbose=args.verbose)
     
-    # Callback when gesture complete
+    # Callback when gesture complete (only print on completion, not during realtime)
     async def on_gesture_complete(tracks):
         result = verifier.verify(tracks)
         if result:
@@ -165,7 +177,7 @@ async def main():
                 color
             )
             
-            # Detailed console output
+            # Detailed console output (only on gesture completion)
             print(f"\n{'='*60}")
             print(f"{'✓ VERIFICATION PASSED' if passed else '✗ VERIFICATION FAILED'}")
             print(f"{'='*60}")

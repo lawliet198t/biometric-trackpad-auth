@@ -87,8 +87,8 @@ pip3 install -e .
 ```
 
 This installs the package and creates command-line shortcuts:
-- `trackpad-train` → `realtime_verifier_advanced.py`
-- `trackpad-verify` → `realtime_verify_with_display.py`
+- `trackpad-train` → `realtime_trainer.py`
+- `trackpad-verify` → `realtime_verify.py`
 - `trackpad-visualize` → `trackpad_visualizer.py`
 
 ### Method 3: Using Virtual Environment (Recommended for Development)
@@ -112,7 +112,7 @@ pip install -r requirements.txt
 
 4. **Run the software:**
 ```bash
-python3 realtime_verifier_advanced.py --help
+python3 realtime_trainer.py --help
 ```
 
 ## Device Permissions
