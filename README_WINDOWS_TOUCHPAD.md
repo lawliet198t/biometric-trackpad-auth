@@ -44,6 +44,43 @@ This will **automatically**:
 
 ---
 
+## Troubleshooting
+
+### LoaderExceptions Error
+
+If you see "Unable to load one or more of the requested types", this means the DLL has dependencies that aren't being found. This is common with Windows Forms applications.
+
+**Solutions:**
+
+1. **Make sure all .NET references are loaded first:**
+   ```python
+   import clr
+   clr.AddReference("System")
+   clr.AddReference("System.Windows.Forms")
+   clr.AddReference("System.Drawing")
+   clr.AddReference("System.Core")
+   ```
+
+2. **Check the actual exceptions:**
+   The error message should show what's missing. Common issues:
+   - Missing Windows Forms assemblies
+   - Wrong .NET Framework version
+   - Missing native dependencies
+
+3. **Use the subprocess approach instead:**
+   If Python.NET is too complex, use the EXE with subprocess communication (see below).
+
+### Alternative: Subprocess Communication
+
+Instead of loading the DLL directly, you can:
+1. Build a console EXE that outputs JSON
+2. Call it from Python using subprocess
+3. Parse the JSON output
+
+This avoids all the Python.NET complexity!
+
+---
+
 ## Use Linux (Easiest!)
 
 Your touchpad already works perfectly on Linux:

@@ -90,13 +90,53 @@ class WindowsTouchpadPythonNET:
         try:
             print(f"Loading C# library: {self.dll_path}")
             
-            # Add reference to the C# DLL
-            clr.AddReference(str(self.dll_path))
+            # First, add references to required .NET assemblies
+            import System
+            clr.AddReference("System")
+            clr.AddReference("System.Windows.Forms")
+            clr.AddReference("System.Drawing")
+            
+            # Now add reference to the C# DLL
+            dll_dir = str(Path(self.dll_path).parent.absolute())
+            sys.path.append(dll_dir)
+            
+            try:
+                clr.AddReference(str(Path(self.dll_path).stem))
+            except Exception as e:
+                print(f"⚠️  Could not load DLL: {e}")
+                print(f"   Trying direct path...")
+                clr.AddReference(str(self.dll_path))
             
             # Import C# namespaces
-            import System
             from System import EventHandler
             from System.Windows.Forms import Application, Form
+            
+            # Try to list available types to debug
+            print("Testing class imports...")
+            try:
+                import System.Reflection as Reflection
+                assembly = Reflection.Assembly.LoadFrom(str(self.dll_path))
+                types = assembly.GetTypes()
+                print(f"✓ Found {len(types)} types in assembly:")
+                for t in types[:10]:  # Show first 10
+                    print(f"  - {t.FullName}")
+                if len(types) > 10:
+                    print(f"  ... and {len(types) - 10} more")
+            except Exception as e:
+                print(f"⚠️  Could not list types: {e}")
+                # Try to get LoaderExceptions for more details
+                try:
+                    import System.Reflection as Reflection
+                    assembly = Reflection.Assembly.LoadFrom(str(self.dll_path))
+                    try:
+                        types = assembly.GetTypes()
+                    except Reflection.ReflectionTypeLoadException as rtle:
+                        print("LoaderExceptions:")
+                        for ex in rtle.LoaderExceptions:
+                            if ex:
+                                print(f"  - {ex.Message}")
+                except:
+                    pass
             
             # Try to import the touchpad classes
             # Note: The actual namespace/class names depend on emoacht's implementation
