@@ -2,7 +2,8 @@
 """
 Windows Precision Touchpad Backend
 
-Provides touchpad input capture for Windows using Raw Input API.
+Provides touchpad input capture for Windows.
+Uses HID parsing for true multi-touch support.
 Compatible interface with Linux evdev backend.
 """
 
@@ -20,13 +21,28 @@ IS_WINDOWS = platform.system() == 'Windows'
 
 if IS_WINDOWS:
     try:
-        import win32api
-        import win32con
-        import win32gui
-        import threading
-    except ImportError:
-        print("⚠️  pywin32 not installed. Install with: pip install pywin32")
-        IS_WINDOWS = False
+        # Try to import HID version first
+        from windows_touchpad_hid import (
+            WindowsTouchpadCaptureHID as WindowsTouchpadCapture,
+            detect_windows_touchpad,
+            list_windows_touchpads,
+            TouchPoint
+        )
+        HID_AVAILABLE = True
+        print("✓ Using HID multi-touch backend")
+    except Exception as e:
+        print(f"⚠️  HID backend not available: {e}")
+        print(f"  Falling back to mouse simulation")
+        HID_AVAILABLE = False
+        
+        try:
+            import win32api
+            import win32con
+            import win32gui
+            import threading
+        except ImportError:
+            print("⚠️  pywin32 not installed. Install with: pip install pywin32")
+            IS_WINDOWS = False
 
 # Raw Input API Constants
 WM_INPUT = 0x00FF
