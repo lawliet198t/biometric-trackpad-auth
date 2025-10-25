@@ -95,10 +95,22 @@ class WindowsTouchpadPythonNET:
             clr.AddReference("System")
             clr.AddReference("System.Windows.Forms")
             clr.AddReference("System.Drawing")
+            clr.AddReference("System.Core")
+            
+            # Add WPF assemblies (required by RawInput.Touchpad)
+            try:
+                clr.AddReference("PresentationFramework")
+                clr.AddReference("PresentationCore")
+                clr.AddReference("WindowsBase")
+                print("  ✓ WPF assemblies loaded")
+            except Exception as e:
+                print(f"  ⚠️  WPF assemblies not available: {e}")
+                print("     Some types may not load, but core functionality should work")
             
             # Now add reference to the C# DLL
             dll_dir = str(Path(self.dll_path).parent.absolute())
-            sys.path.append(dll_dir)
+            if dll_dir not in sys.path:
+                sys.path.append(dll_dir)
             
             try:
                 clr.AddReference(str(Path(self.dll_path).stem))
@@ -116,59 +128,81 @@ class WindowsTouchpadPythonNET:
             try:
                 import System.Reflection as Reflection
                 assembly = Reflection.Assembly.LoadFrom(str(self.dll_path))
-                types = assembly.GetTypes()
-                print(f"✓ Found {len(types)} types in assembly:")
-                for t in types[:10]:  # Show first 10
-                    print(f"  - {t.FullName}")
-                if len(types) > 10:
-                    print(f"  ... and {len(types) - 10} more")
-            except Exception as e:
-                print(f"⚠️  Could not list types: {e}")
-                # Try to get LoaderExceptions for more details
+                
                 try:
-                    import System.Reflection as Reflection
-                    assembly = Reflection.Assembly.LoadFrom(str(self.dll_path))
-                    try:
-                        types = assembly.GetTypes()
-                    except Reflection.ReflectionTypeLoadException as rtle:
-                        print("LoaderExceptions:")
-                        for ex in rtle.LoaderExceptions:
-                            if ex:
-                                print(f"  - {ex.Message}")
-                except:
-                    pass
+                    types = assembly.GetTypes()
+                    print(f"✓ Found {len(types)} types in assembly:")
+                    for t in types[:10]:  # Show first 10
+                        print(f"  - {t.FullName}")
+                    if len(types) > 10:
+                        print(f"  ... and {len(types) - 10} more")
+                except Reflection.ReflectionTypeLoadException as rtle:
+                    # Some types failed to load, but others may have succeeded
+                    loaded_types = [t for t in rtle.Types if t is not None]
+                    print(f"⚠️  Partial load: {len(loaded_types)} types loaded (some failed)")
+                    print(f"   Available types:")
+                    for t in loaded_types[:10]:
+                        print(f"  - {t.FullName}")
+                    if len(loaded_types) > 10:
+                        print(f"  ... and {len(loaded_types) - 10} more")
+                    
+                    # Show first error only
+                    first_error = next((ex for ex in rtle.LoaderExceptions if ex), None)
+                    if first_error:
+                        print(f"   First error: {first_error.Message[:100]}")
+                    
+            except Exception as e:
+                print(f"⚠️  Could not inspect assembly: {e}")
             
-            # Try to import the touchpad classes
-            # Note: The actual namespace/class names depend on emoacht's implementation
-            # This is a template - adjust based on actual DLL structure
+            # Try to import the touchpad classes that we know loaded successfully
             try:
-                # Attempt common namespace patterns
-                from RawInput.Touchpad import TouchpadForm
+                # Import the types that loaded successfully
+                from RawInput.Touchpad import TouchpadContact, TouchpadHelper
                 
-                print("✓ C# library loaded successfully")
+                print("✓ Core touchpad classes loaded:")
+                print("  - TouchpadContact")
+                print("  - TouchpadHelper")
                 
-                # Create the form (this handles Raw Input)
-                self.form = TouchpadForm()
-                
-                # Hook into contact events
-                # Note: Event names depend on actual implementation
-                self.form.ContactsReceived += self._on_contacts_received
-                
-                print("✓ Windows Precision Touchpad initialized via Python.NET")
-                print("  Using emoacht's RawInput.Touchpad library")
-                print("")
-                print("🎉 TRUE MULTI-TOUCH ENABLED!")
-                print("  Touch your touchpad with multiple fingers")
-                
-                # Show the form
-                self.form.Show()
-                
-                return True
+                # Try to import MainWindow (may fail if WPF not available)
+                try:
+                    from RawInput.Touchpad import MainWindow
+                    print("  - MainWindow")
+                    
+                    # Create the window (this handles Raw Input)
+                    self.form = MainWindow()
+                    
+                    # Try to hook into events
+                    # Note: Event names depend on actual implementation
+                    # You may need to inspect the MainWindow class to find the right event
+                    print("\n✓ Windows Precision Touchpad initialized via Python.NET")
+                    print("  Using emoacht's RawInput.Touchpad library")
+                    print("")
+                    print("🎉 TRUE MULTI-TOUCH ENABLED!")
+                    print("  Touch your touchpad with multiple fingers")
+                    
+                    # Show the window
+                    self.form.Show()
+                    
+                    return True
+                    
+                except Exception as e:
+                    print(f"\n⚠️  Could not create MainWindow: {e}")
+                    print("   This is likely because WPF (PresentationFramework) is not available.")
+                    print()
+                    print("   The core touchpad classes loaded successfully, but we can't")
+                    print("   create the UI window. You have two options:")
+                    print()
+                    print("   1. Install .NET Desktop Runtime (includes WPF):")
+                    print("      https://dotnet.microsoft.com/download/dotnet/5.0")
+                    print()
+                    print("   2. Use the subprocess approach instead:")
+                    print("      Build the EXE and call it from Python")
+                    print()
+                    return False
                 
             except ImportError as e:
                 print(f"⚠️  Could not import touchpad classes: {e}")
                 print("   The DLL structure might be different than expected.")
-                print("   You may need to adjust the import statements.")
                 return False
             
         except Exception as e:

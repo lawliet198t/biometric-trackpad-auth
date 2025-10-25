@@ -494,6 +494,18 @@ def main():
         clr.AddReference("System.Drawing")
         clr.AddReference("System.Core")
         
+        # Try to add WPF assemblies (required by RawInput.Touchpad)
+        wpf_available = True
+        try:
+            clr.AddReference("PresentationFramework")
+            clr.AddReference("PresentationCore")
+            clr.AddReference("WindowsBase")
+            print("✓ WPF assemblies available")
+        except Exception as e:
+            wpf_available = False
+            print(f"⚠️  WPF assemblies not available: {e}")
+            print("   Some types may not load, but core functionality should work")
+        
         # Add the DLL directory to sys.path
         dll_dir = str(dll_path.parent.absolute())
         if dll_dir not in sys.path:
@@ -519,17 +531,34 @@ def main():
             if len(types) > 5:
                 print(f"    ... and {len(types) - 5} more")
         except System.Reflection.ReflectionTypeLoadException as rtle:
-            print(f"⚠️  Could not list all types (LoaderExceptions):")
-            # Show first few exceptions
-            exceptions_shown = 0
-            for ex in rtle.LoaderExceptions:
-                if ex and exceptions_shown < 3:
-                    print(f"    - {ex.Message}")
-                    exceptions_shown += 1
-            if len(rtle.LoaderExceptions) > 3:
-                print(f"    ... and {len(rtle.LoaderExceptions) - 3} more exceptions")
-            print("\n   This usually means missing dependencies.")
-            print("   The DLL may still work if dependencies are available at runtime.")
+            # Some types failed to load, but others may have succeeded
+            loaded_types = [t for t in rtle.Types if t is not None]
+            print(f"⚠️  Partial load: {len(loaded_types)} types loaded")
+            
+            if loaded_types:
+                print(f"\n   Successfully loaded types:")
+                for t in loaded_types[:5]:
+                    print(f"    - {t.FullName}")
+                if len(loaded_types) > 5:
+                    print(f"    ... and {len(loaded_types) - 5} more")
+            
+            # Show first error
+            first_error = next((ex for ex in rtle.LoaderExceptions if ex), None)
+            if first_error:
+                print(f"\n   First error: {first_error.Message}")
+                
+                # Check if it's the WPF issue
+                if "PresentationFramework" in first_error.Message:
+                    print("\n   ⚠️  Missing WPF (Windows Presentation Foundation)")
+                    print("      This is needed for the UI window.")
+                    print()
+                    print("      Solution: Install .NET Desktop Runtime")
+                    print("      https://dotnet.microsoft.com/download/dotnet/5.0")
+                    print()
+                    if not wpf_available:
+                        print("      Or use the subprocess approach (no WPF needed)")
+            
+            print("\n   Core touchpad classes should still work!")
         except Exception as e:
             print(f"⚠️  Could not list types: {e}")
             print("   The DLL may have dependencies that will be resolved at runtime")
