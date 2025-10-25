@@ -3,57 +3,75 @@ using System.Text.Json;
 using System.Collections.Generic;
 using System.Windows;
 using System.Linq;
-using RawInput.Touchpad;
+using System.Reflection;
 
+// We'll use reflection to access RawInput.Touchpad without knowing exact API
 namespace TouchpadCapture
 {
-    // JSON-based touchpad capture for Python subprocess communication
-    
     public class TouchPointData
     {
         public int ContactId { get; set; }
         public double X { get; set; }
         public double Y { get; set; }
-        public bool TipSwitch { get; set; }
         public long Timestamp { get; set; }
     }
     
     public class TouchEvent
     {
-        public string Type { get; set; }  // "contacts", "ready", or "error"
+        public string Type { get; set; }
         public List<TouchPointData> Contacts { get; set; }
         public string Message { get; set; }
     }
     
     class Program
     {
-        private static MainWindow window;
-        
         [STAThread]
         static void Main(string[] args)
         {
             try
             {
+                // Load the RawInput.Touchpad assembly
+                var assembly = Assembly.LoadFrom("RawInput.Touchpad.dll");
+                
+                // Find the MainWindow type
+                var mainWindowType = assembly.GetType("RawInput.Touchpad.MainWindow");
+                if (mainWindowType == null)
+                {
+                    OutputJson(new TouchEvent
+                    {
+                        Type = "error",
+                        Message = "Could not find MainWindow type in RawInput.Touchpad.dll"
+                    });
+                    return;
+                }
+                
                 // Create WPF application
                 var app = new Application();
                 
-                // Create main window (this registers for Raw Input)
-                window = new MainWindow();
+                // Create MainWindow instance using reflection
+                var window = Activator.CreateInstance(mainWindowType) as Window;
+                if (window == null)
+                {
+                    OutputJson(new TouchEvent
+                    {
+                        Type = "error",
+                        Message = "Could not create MainWindow instance"
+                    });
+                    return;
+                }
                 
-                // Hide the window (we don't need UI)
+                // Hide the window
                 window.Visibility = Visibility.Hidden;
                 window.ShowInTaskbar = false;
                 
-                // Hook into touchpad events
-                // The MainWindow class should have some way to get contacts
-                // We'll need to inspect the actual implementation
-                
-                // Output ready message
                 OutputJson(new TouchEvent
                 {
                     Type = "ready",
-                    Message = "Touchpad capture ready"
+                    Message = "Touchpad capture ready (using reflection)"
                 });
+                
+                // TODO: Hook into events using reflection
+                // For now, just keep the window alive to register for Raw Input
                 
                 // Start the WPF message loop
                 app.Run(window);
@@ -81,26 +99,6 @@ namespace TouchpadCapture
             {
                 Console.Error.WriteLine($"JSON serialization error: {ex.Message}");
             }
-        }
-        
-        // This will be called when contacts are received
-        // You'll need to wire this up to MainWindow's event/callback
-        static void OnContactsReceived(IEnumerable<TouchpadContact> contacts)
-        {
-            var touchPoints = contacts.Select(c => new TouchPointData
-            {
-                ContactId = c.ContactId,
-                X = c.X,
-                Y = c.Y,
-                TipSwitch = c.TipSwitch,
-                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-            }).ToList();
-            
-            OutputJson(new TouchEvent
-            {
-                Type = "contacts",
-                Contacts = touchPoints
-            });
         }
     }
 }
