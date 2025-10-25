@@ -315,14 +315,17 @@ namespace TouchpadCapture
             return false;
         }
         
+        private const uint RIDEV_INPUTSINK = 0x00000100;
+        
         public static bool RegisterInput(IntPtr windowHandle)
         {
             // Precision Touchpad (PTP) HID device
+            // RIDEV_INPUTSINK allows receiving input even when not in foreground
             var device = new RAWINPUTDEVICE
             {
                 usUsagePage = 0x000D,
                 usUsage = 0x0005,
-                dwFlags = 0,
+                dwFlags = RIDEV_INPUTSINK,  // Receive input even in background
                 hwndTarget = windowHandle
             };
             
@@ -478,12 +481,14 @@ namespace TouchpadCapture
                 var app = new Application();
                 window = new Window
                 {
-                    Title = "Raw Input Touchpad Capture - Touch your touchpad!",
-                    Width = 600,
-                    Height = 400,
+                    Title = "Touchpad Capture (Keep this window open)",
+                    Width = 400,
+                    Height = 300,
                     WindowState = WindowState.Normal,
-                    WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen,
-                    Background = System.Windows.Media.Brushes.Black
+                    WindowStartupLocation = System.Windows.WindowStartupLocation.TopRight,
+                    Background = System.Windows.Media.Brushes.Black,
+                    Topmost = true,  // Always on top
+                    ShowInTaskbar = true
                 };
                 
                 // Add text display
