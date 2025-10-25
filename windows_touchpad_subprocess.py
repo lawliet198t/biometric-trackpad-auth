@@ -65,6 +65,7 @@ class WindowsTouchpadSubprocess:
         """Try to find the TouchpadCapture EXE"""
         possible_paths = [
             "TouchpadCapture.exe",
+            "TouchpadCapture/bin/Release/net5.0-windows/TouchpadCapture.exe",
             "bin/TouchpadCapture.exe",
             Path(__file__).parent / "TouchpadCapture.exe",
         ]

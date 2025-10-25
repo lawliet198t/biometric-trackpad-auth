@@ -40,11 +40,12 @@ if %ERRORLEVEL% NEQ 0 (
 )
 cd ..
 
-REM Copy the EXE
+REM Copy the EXE and all dependencies
 echo.
-echo Copying EXE...
+echo Copying EXE and dependencies...
 copy "TouchpadCapture\bin\Release\net5.0-windows\TouchpadCapture.exe" "." /Y
-copy "TouchpadCapture\bin\Release\net5.0-windows\RawInput.Touchpad.dll" "." /Y
+copy "TouchpadCapture\bin\Release\net5.0-windows\*.dll" "." /Y
+copy "TouchpadCapture\bin\Release\net5.0-windows\*.json" "." /Y 2>nul
 
 echo.
 echo ========================================
