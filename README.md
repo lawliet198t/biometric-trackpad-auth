@@ -312,7 +312,9 @@ Total distance traveled while drawing. Should be consistent for the same gesture
 - Check if your laptop has Precision Touchpad:
   - Most modern laptops (2016+) have it
   - Look for "Precision Touchpad" in device settings
-- Try running as administrator (may help with permissions)
+- **Note**: Windows version currently uses mouse simulation (single-point)
+  - For TRUE multi-touch on Windows, see `README_WINDOWS_TOUCHPAD.md`
+  - Requires C# bridge (proven solution)
 
 ### Real-time metrics not updating
 - Draw more points (draw slower or longer path)
