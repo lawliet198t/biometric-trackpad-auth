@@ -46,11 +46,20 @@ namespace TouchpadCapture
         public int? ContactId { get; set; }
         public int? X { get; set; }
         public int? Y { get; set; }
+        public bool? TipSwitch { get; set; }
         
         public bool TryCreate(out TouchpadContact contact)
         {
+            // Only create contact if we have all data AND TipSwitch is true (or not reported)
             if (ContactId.HasValue && X.HasValue && Y.HasValue)
             {
+                // If TipSwitch is reported and false, don't create contact
+                if (TipSwitch.HasValue && !TipSwitch.Value)
+                {
+                    contact = default;
+                    return false;
+                }
+                
                 contact = new TouchpadContact(ContactId.Value, X.Value, Y.Value);
                 return true;
             }
@@ -63,6 +72,7 @@ namespace TouchpadCapture
             ContactId = null;
             X = null;
             Y = null;
+            TipSwitch = null;
         }
     }
     
@@ -432,10 +442,15 @@ namespace TouchpadCapture
                                 case (0x01, 0x31): // Y
                                     creator.Y = (int)value;
                                     break;
+                                
+                                case (0x0D, 0x42): // Tip Switch (1 = touching, 0 = not touching)
+                                    creator.TipSwitch = value > 0;
+                                    break;
                             }
                             break;
                     }
                     
+                    // Only create contact if TipSwitch is true (finger is actually touching)
                     if (creator.TryCreate(out TouchpadContact contact))
                     {
                         contacts.Add(contact);
