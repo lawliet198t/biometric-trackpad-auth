@@ -13,8 +13,8 @@ if %ERRORLEVEL% NEQ 0 (
 
 REM Build the Raw Input program
 cd TouchpadCapture
-echo Building RawInputProgram.cs...
-dotnet build RawInputProgram.cs -o bin -p:OutputType=WinExe -p:TargetFramework=net5.0-windows -p:UseWPF=true
+echo Building RawInputProgram.csproj...
+dotnet build RawInputProgram.csproj -c Release -o bin
 
 if %ERRORLEVEL% EQU 0 (
     echo.

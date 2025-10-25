@@ -23,32 +23,32 @@ The Raw Input API is a Windows API that provides direct access to HID (Human Int
 
 ## Quick Start
 
-### 1. Build
+**→ See [QUICK_START.md](QUICK_START.md) for detailed step-by-step guide**
+
+### 1. Verify Setup
+
+```bash
+verify_setup.bat
+```
+
+### 2. Build
 
 ```bash
 build_rawinput.bat
 ```
 
-This creates `TouchpadCapture.exe` using the Raw Input API
-
-### 2. Run
+### 3. Test
 
 ```bash
-# See raw values
 python simple_windows_touchpad.py
-
-# Or use in biometric system
-python simple_biometric_capture.py
 ```
 
-### 3. Touch Your Touchpad
-
-Raw values appear:
+Touch your touchpad and see raw values:
 
 ```
 [14:23:45] 2 contact(s):
-  Contact 0: X=245.5, Y=312.8
-  Contact 1: X=567.2, Y=423.1
+  Contact 0: X=32768, Y=16384
+  Contact 1: X=45000, Y=20000
 ```
 
 ## Use in Your Code
@@ -88,8 +88,18 @@ This is the **proper way** to access touchpad data on Windows:
 
 Based on the excellent work by [@emoacht](https://github.com/emoacht/RawInput.Touchpad).
 
+## Documentation
+
+- **[QUICK_START.md](QUICK_START.md)** - Step-by-step setup guide
+- **[BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md)** - Detailed build help
+- **[RAW_INPUT_GUIDE.md](RAW_INPUT_GUIDE.md)** - How Raw Input API works
+- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Technical details
+- **[FINAL_SUMMARY.md](FINAL_SUMMARY.md)** - Complete overview
+
+## Troubleshooting
+
+See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for common issues and solutions.
+
 ## That's It!
 
-No complex abstractions. Just raw touchpad values you can use directly.
-
-See `SIMPLE_TOUCHPAD.md` for more details.
+No complex abstractions. Just raw touchpad values directly from the hardware using the proper Windows Raw Input API.
