@@ -157,12 +157,8 @@ class WindowsTouchpadCapture:
             self.user32 = None
     
     def open_device(self) -> bool:
-        """Initialize Windows Raw Input with capability checks"""
+        """Initialize Windows touchpad capture (via pygame mouse events)"""
         try:
-            if self.user32 is None:
-                print(f"✗ Windows Raw Input API not available")
-                return False
-            
             # Check for Precision Touchpad in registry
             try:
                 import winreg
@@ -177,229 +173,73 @@ class WindowsTouchpadCapture:
             except:
                 has_precision_touchpad = False
             
-            if not has_precision_touchpad:
-                print(f"⚠️  Windows Precision Touchpad not detected in registry")
-                print(f"  Will capture mouse events as touchpad simulation")
-            else:
+            if has_precision_touchpad:
                 print(f"✓ Windows Precision Touchpad detected")
+            else:
+                print(f"⚠️  Windows Precision Touchpad not detected in registry")
             
-            # Create window for receiving raw input
-            self._create_message_window()
-            
-            if self.hwnd is None:
-                print(f"✗ Failed to create message window")
-                return False
-            
-            # Register for raw input from mouse/touchpad
-            devices = (RAWINPUTDEVICE * 1)()
-            
-            # Register for mouse input (touchpad sends mouse events)
-            devices[0].usUsagePage = HID_USAGE_PAGE_GENERIC
-            devices[0].usUsage = HID_USAGE_GENERIC_MOUSE
-            devices[0].dwFlags = RIDEV_INPUTSINK
-            devices[0].hwndTarget = self.hwnd
-            
-            if not self.RegisterRawInputDevices(devices, 1, sizeof(RAWINPUTDEVICE)):
-                print(f"✗ Failed to register raw input devices")
-                return False
-            
-            print(f"✓ Windows Raw Input initialized")
-            print(f"  Capturing mouse/touchpad events")
-            print(f"  Window handle: 0x{self.hwnd:08X}")
+            print(f"✓ Windows touchpad capture initialized")
+            print(f"  Using pygame mouse events (touchpad → mouse cursor)")
             print(f"")
-            print(f"⚠️  IMPORTANT: Click and drag in the window to simulate touch")
-            print(f"  Note: True multi-touch requires touchscreen, not touchpad")
-            
-            # Start message loop in background thread
-            self.running = True
-            self.message_thread = threading.Thread(target=self._message_loop, daemon=True)
-            self.message_thread.start()
+            print(f"⚠️  LIMITATION: Windows touchpads only send single cursor position")
+            print(f"  • Click and drag with mouse/touchpad to draw gestures")
+            print(f"  • True multi-touch requires touchscreen or Linux")
+            print(f"  • Each click-drag = one finger gesture")
             
             return True
             
         except Exception as e:
-            print(f"✗ Error initializing Raw Input: {e}")
+            print(f"✗ Error initializing touchpad capture: {e}")
             import traceback
             traceback.print_exc()
             return False
     
-    def _create_message_window(self):
-        """Create a window to receive raw input messages"""
-        try:
-            # Register window class
-            wc = win32gui.WNDCLASS()
-            wc.lpfnWndProc = self._wnd_proc
-            wc.lpszClassName = "TouchpadCaptureWindow"
-            wc.hInstance = win32api.GetModuleHandle(None)
-            wc.hCursor = win32gui.LoadCursor(0, win32con.IDC_ARROW)
-            wc.hbrBackground = win32gui.GetStockObject(win32con.WHITE_BRUSH)
-            
-            try:
-                class_atom = win32gui.RegisterClass(wc)
-            except Exception:
-                pass
-            
-            # Create window
-            self.hwnd = win32gui.CreateWindow(
-                "TouchpadCaptureWindow",
-                "Touchpad Capture - Click and drag to test",
-                win32con.WS_OVERLAPPEDWINDOW | win32con.WS_VISIBLE,
-                100, 100, self.screen_width, self.screen_height,
-                0, 0, wc.hInstance, None
-            )
-            
-            win32gui.ShowWindow(self.hwnd, win32con.SW_SHOW)
-            win32gui.UpdateWindow(self.hwnd)
-            
-        except Exception as e:
-            print(f"Error creating window: {e}")
-            import traceback
-            traceback.print_exc()
-            self.hwnd = None
-    
-    def _wnd_proc(self, hwnd, msg, wparam, lparam):
-        """Window procedure to handle messages"""
-        try:
-            if msg == WM_INPUT:
-                self._handle_raw_input(lparam)
-                return 0
-            
-            elif msg == win32con.WM_LBUTTONDOWN:
-                # Mouse button down - start tracking
-                x = win32api.LOWORD(lparam)
-                y = win32api.HIWORD(lparam)
-                self._handle_mouse_down(x, y)
-                return 0
-            
-            elif msg == win32con.WM_MOUSEMOVE:
-                # Mouse move - add points
-                x = win32api.LOWORD(lparam)
-                y = win32api.HIWORD(lparam)
-                if wparam & win32con.MK_LBUTTON:
-                    self._handle_mouse_move(x, y)
-                return 0
-            
-            elif msg == win32con.WM_LBUTTONUP:
-                # Mouse button up - end tracking
-                self._handle_mouse_up()
-                return 0
-            
-            elif msg == win32con.WM_DESTROY:
-                win32gui.PostQuitMessage(0)
-                return 0
-        
-        except Exception as e:
-            print(f"Error in window proc: {e}")
-        
-        return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
-    
-    def _handle_raw_input(self, lparam):
-        """Handle WM_INPUT message"""
-        try:
-            # Get size of raw input data
-            size = UINT(0)
-            self.GetRawInputData(lparam, RID_INPUT, None, byref(size), sizeof(RAWINPUTHEADER))
-            
-            if size.value == 0:
-                return
-            
-            # Allocate buffer and get data
-            buffer = (c_ubyte * size.value)()
-            result = self.GetRawInputData(lparam, RID_INPUT, buffer, byref(size), sizeof(RAWINPUTHEADER))
-            
-            if result != size.value:
-                return
-            
-            # Parse RAWINPUT structure
-            raw = cast(buffer, POINTER(RAWINPUT)).contents
-            
-            # We're mainly interested in mouse movements from touchpad
-            if raw.header.dwType == RIM_TYPEMOUSE:
-                mouse = raw.data.mouse
-                # Raw mouse data available here if needed
-                pass
-            
-        except Exception as e:
-            pass  # Silently ignore parsing errors
-    
-    def _handle_mouse_down(self, x: int, y: int):
-        """Handle mouse button down (simulates finger down)"""
+    def process_touch_down(self, touch_id: int, x: float, y: float):
+        """Handle touch down event (called from pygame)"""
         if not self.is_capturing:
             return
         
-        self.mouse_down = True
-        self.current_track_id += 1
-        
         timestamp = time.monotonic()
         timestamp_ns = time.monotonic_ns()
         
-        self.active_touches[self.current_track_id] = [
-            TouchPoint(float(x), float(y), timestamp, timestamp_ns)
-        ]
-        self.last_mouse_pos = (x, y)
-        
-        print(f"👇 Touch {self.current_track_id} down at ({x}, {y})")
+        self.active_touches[touch_id] = [TouchPoint(x, y, timestamp, timestamp_ns)]
         
         if self.on_finger_down_callback:
-            self.on_finger_down_callback(self.current_track_id)
+            self.on_finger_down_callback(touch_id)
     
-    def _handle_mouse_move(self, x: int, y: int):
-        """Handle mouse move (simulates finger move)"""
-        if not self.is_capturing or not self.mouse_down:
-            return
-        
-        if self.current_track_id not in self.active_touches:
+    def process_touch_move(self, touch_id: int, x: float, y: float):
+        """Handle touch move event (called from pygame)"""
+        if not self.is_capturing or touch_id not in self.active_touches:
             return
         
         timestamp = time.monotonic()
         timestamp_ns = time.monotonic_ns()
         
-        self.active_touches[self.current_track_id].append(
-            TouchPoint(float(x), float(y), timestamp, timestamp_ns)
-        )
-        self.last_mouse_pos = (x, y)
+        self.active_touches[touch_id].append(TouchPoint(x, y, timestamp, timestamp_ns))
         
         if self.on_point_added_callback:
-            self.on_point_added_callback(self.current_track_id, float(x), float(y))
+            self.on_point_added_callback(touch_id, x, y)
     
-    def _handle_mouse_up(self):
-        """Handle mouse button up (simulates finger up)"""
-        if not self.mouse_down:
+    def process_touch_up(self, touch_id: int):
+        """Handle touch up event (called from pygame)"""
+        if touch_id not in self.active_touches:
             return
         
-        self.mouse_down = False
+        points = self.active_touches[touch_id]
+        self.completed_touches.append(points)
         
-        if self.current_track_id in self.active_touches:
-            points = self.active_touches[self.current_track_id]
-            self.completed_touches.append(points)
-            
-            print(f"👆 Touch {self.current_track_id} up ({len(points)} points)")
-            
-            if self.on_finger_up_callback:
-                self.on_finger_up_callback(self.current_track_id, points)
-            
-            del self.active_touches[self.current_track_id]
-    
-    def _message_loop(self):
-        """Message loop running in background thread"""
-        try:
-            while self.running:
-                msg = win32gui.GetMessage(None, 0, 0)
-                if msg:
-                    win32gui.TranslateMessage(msg)
-                    win32gui.DispatchMessage(msg)
-                else:
-                    break
-        except Exception as e:
-            print(f"Message loop error: {e}")
+        if self.on_finger_up_callback:
+            self.on_finger_up_callback(touch_id, points)
+        
+        del self.active_touches[touch_id]
+
     
     def start_capture(self):
         """Start capturing gestures"""
         self.is_capturing = True
         self.active_touches.clear()
         self.completed_touches.clear()
-        self.current_track_id = 0
-        print("🎬 Started capturing (click and drag in window)")
+        print("🎬 Started capturing (click and drag with mouse/touchpad)")
     
     def stop_capture(self):
         """Stop capturing gestures"""

@@ -681,8 +681,10 @@ async def run_capture_loop(capture: TrackpadCapture,
     running = True
     needs_redraw = True
     
-    # Windows touch handling
+    # Windows mouse handling (touchpad sends mouse events)
     is_windows = capture.is_windows if hasattr(capture, 'is_windows') else False
+    mouse_tracking = False
+    mouse_track_id = 0
     
     while running:
         # Handle pygame events
@@ -690,24 +692,23 @@ async def run_capture_loop(capture: TrackpadCapture,
             if event.type == pygame.QUIT:
                 running = False
             
-            # Windows touch events
-            elif is_windows and event.type == pygame.FINGERDOWN:
-                if capture.backend:
-                    x = int(event.x * visualizer.width)
-                    y = int(event.y * visualizer.height)
-                    capture.backend.process_touch_down(event.finger_id, x, y)
+            # Windows: Use mouse events as touch simulation
+            elif is_windows and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if capture.backend and capture.is_capturing:
+                    mouse_tracking = True
+                    mouse_track_id += 1
+                    capture.backend.process_touch_down(mouse_track_id, event.pos[0], event.pos[1])
                 needs_redraw = True
             
-            elif is_windows and event.type == pygame.FINGERMOTION:
-                if capture.backend:
-                    x = int(event.x * visualizer.width)
-                    y = int(event.y * visualizer.height)
-                    capture.backend.process_touch_move(event.finger_id, x, y)
+            elif is_windows and event.type == pygame.MOUSEMOTION:
+                if capture.backend and mouse_tracking:
+                    capture.backend.process_touch_move(mouse_track_id, event.pos[0], event.pos[1])
                 needs_redraw = True
             
-            elif is_windows and event.type == pygame.FINGERUP:
-                if capture.backend:
-                    capture.backend.process_touch_up(event.finger_id)
+            elif is_windows and event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                if capture.backend and mouse_tracking:
+                    capture.backend.process_touch_up(mouse_track_id)
+                    mouse_tracking = False
                 needs_redraw = True
             
             elif event.type == pygame.KEYDOWN:
