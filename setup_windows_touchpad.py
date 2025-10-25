@@ -9,10 +9,13 @@ import sys
 import urllib.request
 import zipfile
 import json
+import subprocess
+import tempfile
 from pathlib import Path
 import shutil
 
-# GitHub API URL for latest release
+# GitHub repository
+GITHUB_REPO = "https://github.com/emoacht/RawInput.Touchpad.git"
 GITHUB_API_URL = "https://api.github.com/repos/emoacht/RawInput.Touchpad/releases/latest"
 DLL_NAME = "RawInput.Touchpad.dll"
 
@@ -143,6 +146,122 @@ def extract_dll_from_zip(zip_path, target_dir="."):
         traceback.print_exc()
         return False
 
+def check_dotnet():
+    """Check if .NET SDK is installed"""
+    print("Checking for .NET SDK...")
+    
+    try:
+        result = subprocess.run(
+            ["dotnet", "--version"],
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode == 0:
+            version = result.stdout.strip()
+            print(f"✓ .NET SDK {version} is installed")
+            return True
+        else:
+            return False
+    except FileNotFoundError:
+        return False
+
+def check_git():
+    """Check if git is installed"""
+    print("Checking for git...")
+    
+    try:
+        result = subprocess.run(
+            ["git", "--version"],
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode == 0:
+            version = result.stdout.strip()
+            print(f"✓ {version}")
+            return True
+        else:
+            return False
+    except FileNotFoundError:
+        return False
+
+def build_from_source():
+    """Clone repository and build DLL from source"""
+    print("\nBuilding DLL from source...")
+    print("This will take a few minutes...")
+    
+    # Create temp directory
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        repo_path = temp_path / "RawInput.Touchpad"
+        
+        try:
+            # Clone repository
+            print("\n1. Cloning repository...")
+            result = subprocess.run(
+                ["git", "clone", "--depth", "1", GITHUB_REPO, str(repo_path)],
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode != 0:
+                print(f"✗ Failed to clone: {result.stderr}")
+                return False
+            
+            print("✓ Repository cloned")
+            
+            # Build project
+            print("\n2. Building project...")
+            source_path = repo_path / "Source"
+            
+            result = subprocess.run(
+                ["dotnet", "build", "-c", "Release"],
+                cwd=str(source_path),
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode != 0:
+                print(f"✗ Build failed: {result.stderr}")
+                return False
+            
+            print("✓ Build successful")
+            
+            # Find and copy DLL
+            print("\n3. Copying DLL...")
+            dll_search_paths = [
+                source_path / "bin" / "Release" / "net6.0" / DLL_NAME,
+                source_path / "bin" / "Release" / "net5.0" / DLL_NAME,
+                source_path / "RawInput.Touchpad" / "bin" / "Release" / "net6.0" / DLL_NAME,
+            ]
+            
+            dll_found = None
+            for dll_path in dll_search_paths:
+                if dll_path.exists():
+                    dll_found = dll_path
+                    break
+            
+            if not dll_found:
+                print("✗ Could not find built DLL")
+                print("  Searched in:")
+                for p in dll_search_paths:
+                    print(f"    - {p}")
+                return False
+            
+            # Copy to project directory
+            target_path = Path(DLL_NAME)
+            shutil.copy(str(dll_found), str(target_path))
+            
+            print(f"✓ DLL copied to: {target_path.absolute()}")
+            return True
+            
+        except Exception as e:
+            print(f"✗ Error during build: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
 def install_pythonnet():
     """Install pythonnet if not already installed"""
     print("Checking for pythonnet...")
@@ -156,7 +275,6 @@ def install_pythonnet():
         print("Installing pythonnet...")
         
         try:
-            import subprocess
             result = subprocess.run(
                 [sys.executable, "-m", "pip", "install", "pythonnet"],
                 capture_output=True,
@@ -195,69 +313,42 @@ def main():
         print(f"✗ {DLL_NAME} not found")
         skip_download = False
     
-    # Step 2: Download and extract DLL
+    # Step 2: Build DLL from source
     if not skip_download:
-        print_header("Step 2: Downloading C# Library")
+        print_header("Step 2: Building C# Library from Source")
         
-        # Get latest release info
-        release_data = get_latest_release_info()
+        # Check prerequisites
+        print("Checking prerequisites...")
         
-        if not release_data:
-            print("\n✗ Could not fetch release info")
-            print("Manual download:")
-            print("  1. Go to: https://github.com/emoacht/RawInput.Touchpad/releases")
-            print("  2. Download the latest ZIP file")
-            print(f"  3. Extract {DLL_NAME} to this folder")
+        has_git = check_git()
+        has_dotnet = check_dotnet()
+        
+        if not has_git:
+            print("\n✗ git is not installed")
+            print("  Download from: https://git-scm.com/download/win")
+            print("  Or use: winget install Git.Git")
             return 1
         
-        print(f"✓ Latest version: {release_data.get('tag_name', 'unknown')}")
-        
-        # Find ZIP asset
-        zip_asset = find_zip_asset(release_data)
-        
-        if not zip_asset:
-            print("\n✗ Could not find ZIP file in release")
-            print("Manual download:")
-            print(f"  Go to: {release_data.get('html_url', 'GitHub releases')}")
+        if not has_dotnet:
+            print("\n✗ .NET SDK is not installed")
+            print("  Download from: https://dotnet.microsoft.com/download")
+            print("  Or use: winget install Microsoft.DotNet.SDK.6")
             return 1
         
-        print(f"✓ Found: {zip_asset['name']}")
+        print("\n✓ All prerequisites installed")
         
-        # Download ZIP
-        zip_filename = zip_asset['name']
-        if not download_file(zip_asset['browser_download_url'], zip_filename):
-            return 1
-        
-        print(f"✓ Downloaded: {zip_filename}")
-        
-        # Extract DLL
-        if not extract_dll_from_zip(zip_filename):
+        # Build from source
+        if not build_from_source():
             print("\n" + "=" * 70)
-            print("⚠️  DLL NOT AVAILABLE IN PRE-BUILT RELEASE")
+            print("⚠️  BUILD FAILED")
             print("=" * 70)
             print()
-            print("The pre-built release only contains an EXE file.")
-            print("To get the DLL for Python.NET integration, you need to build from source.")
-            print()
-            print("Option 1: Build from source (for Python integration)")
-            print("  1. Install .NET SDK: https://dotnet.microsoft.com/download")
-            print("  2. Clone: git clone https://github.com/emoacht/RawInput.Touchpad.git")
-            print("  3. Build: cd RawInput.Touchpad/Source && dotnet build -c Release")
-            print("  4. Copy DLL: copy bin\\Release\\net6.0\\RawInput.Touchpad.dll to your project")
-            print()
-            print("Option 2: Use Linux (easiest!)")
-            print("  Your touchpad already works perfectly on Linux - no setup needed!")
-            print()
-            print("See README_WINDOWS_TOUCHPAD.md for detailed instructions")
+            print("Options:")
+            print("1. Check error messages above")
+            print("2. Try manual build (see README_WINDOWS_TOUCHPAD.md)")
+            print("3. Use Linux (works out of the box!)")
             print()
             return 1
-        
-        # Clean up ZIP file
-        try:
-            Path(zip_filename).unlink()
-            print(f"✓ Cleaned up: {zip_filename}")
-        except:
-            pass
     
     # Step 3: Install pythonnet
     print_header("Step 3: Installing Python.NET")

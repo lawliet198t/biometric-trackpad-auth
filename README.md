@@ -306,13 +306,19 @@ Total distance traveled while drawing. Should be consistent for the same gesture
 - Or run with sudo (not recommended)
 
 ### Windows multi-touch setup
-**For TRUE multi-touch on Windows:**
+**For TRUE multi-touch on Windows (all 5 fingers!):**
 
-The pre-built releases only have an EXE (not DLL). You need to either:
-1. **Build from source** (requires .NET SDK) - See [`README_WINDOWS_TOUCHPAD.md`](README_WINDOWS_TOUCHPAD.md)
-2. **Use Linux** (easiest - works out of the box!)
+```bash
+python setup_windows_touchpad.py
+```
 
-Current Windows version uses mouse simulation (single-point only).
+This automatically builds the C# library from source.
+
+**Prerequisites:** git and .NET SDK (script will check)
+
+See [`README_WINDOWS_TOUCHPAD.md`](README_WINDOWS_TOUCHPAD.md) for details.
+
+**Or use Linux** - works out of the box with no setup! ✅
 
 ### Real-time metrics not updating
 - Draw more points (draw slower or longer path)

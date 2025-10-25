@@ -1,15 +1,25 @@
 # Windows Multi-Touch Setup
 
-## Important Note
+## Automatic Setup (Recommended)
 
-The pre-built releases only contain an **EXE file**, not a DLL. To use Python.NET, you need to **build from source**.
+```bash
+python setup_windows_touchpad.py
+```
 
-## Option 1: Build from Source (Recommended for Python.NET)
+This will:
+1. ✅ Check for git and .NET SDK
+2. ✅ Clone the repository
+3. ✅ Build the DLL from source
+4. ✅ Install pythonnet
+5. ✅ Verify everything works
 
-### Prerequisites
-- .NET 6 SDK: https://dotnet.microsoft.com/download
+**Prerequisites:**
+- git: https://git-scm.com/download/win (or `winget install Git.Git`)
+- .NET SDK: https://dotnet.microsoft.com/download (or `winget install Microsoft.DotNet.SDK.6`)
 
-### Steps
+---
+
+## Manual Setup (if automatic fails)
 
 1. **Clone and build:**
    ```bash
@@ -18,7 +28,7 @@ The pre-built releases only contain an **EXE file**, not a DLL. To use Python.NE
    dotnet build -c Release
    ```
 
-2. **Copy DLL to your project:**
+2. **Copy DLL:**
    ```bash
    copy bin\Release\net6.0\RawInput.Touchpad.dll ..\..\your-project\
    ```
@@ -33,31 +43,9 @@ The pre-built releases only contain an **EXE file**, not a DLL. To use Python.NE
    python test_windows_multitouch.py
    ```
 
-5. **Run:**
-   ```bash
-   python realtime_trainer.py
-   ```
-
 ---
 
-## Option 2: Use Pre-built EXE (Simpler, Test Only)
-
-1. **Download:**
-   - Go to: https://github.com/emoacht/RawInput.Touchpad/releases
-   - Download `RawInput.Touchpad.exe`
-
-2. **Run to test your touchpad:**
-   ```bash
-   RawInput.Touchpad.exe
-   ```
-   
-   Touch your touchpad - you should see all 5 fingers!
-
-3. **This confirms your touchpad works**, but you'll need Option 1 for Python integration.
-
----
-
-## Option 3: Use Linux (Easiest!)
+## Use Linux (Easiest!)
 
 Your touchpad already works perfectly on Linux:
 ```bash
