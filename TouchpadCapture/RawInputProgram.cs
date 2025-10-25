@@ -544,6 +544,7 @@ namespace TouchpadCapture
         private static DateTime lastJsonOutput = DateTime.MinValue;
         private static readonly TimeSpan uiUpdateInterval = TimeSpan.FromMilliseconds(100); // Update UI every 100ms
         private static readonly TimeSpan jsonOutputInterval = TimeSpan.FromMilliseconds(16); // Output JSON at 60 FPS
+        private static int lastContactCount = 0;
         
         private static IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
@@ -551,7 +552,7 @@ namespace TouchpadCapture
             {
                 var contacts = TouchpadHelper.ParseInput(lParam);
                 
-                if (contacts != null && contacts.Length > 0)
+                if (contacts != null)
                 {
                     var now = DateTime.UtcNow;
                     var contactList = new List<ContactData>();
@@ -574,12 +575,19 @@ namespace TouchpadCapture
                     {
                         if (window.Tag is System.Windows.Controls.TextBlock textBlock)
                         {
-                            var text = $"✓ {contacts.Length} finger(s)\n\n";
-                            foreach (var contact in contacts)
+                            if (contacts.Length > 0)
                             {
-                                text += $"#{contact.ContactId}: X={contact.X} Y={contact.Y}\n";
+                                var text = $"✓ {contacts.Length} finger(s)\n\n";
+                                foreach (var contact in contacts)
+                                {
+                                    text += $"#{contact.ContactId}: X={contact.X} Y={contact.Y}\n";
+                                }
+                                textBlock.Text = text;
                             }
-                            textBlock.Text = text;
+                            else
+                            {
+                                textBlock.Text = "Waiting for touch...";
+                            }
                         }
                         lastUiUpdate = now;
                     }
@@ -587,12 +595,24 @@ namespace TouchpadCapture
                     // Output JSON (throttled to 60 FPS)
                     if (now - lastJsonOutput > jsonOutputInterval)
                     {
+                        // Always output, even if empty (to signal finger lift)
                         OutputJson(new TouchOutput
                         {
                             Type = "contacts",
                             Contacts = contactList
                         });
                         lastJsonOutput = now;
+                        lastContactCount = contacts.Length;
+                    }
+                    // If contacts went from >0 to 0, send immediately (finger lift)
+                    else if (lastContactCount > 0 && contacts.Length == 0)
+                    {
+                        OutputJson(new TouchOutput
+                        {
+                            Type = "contacts",
+                            Contacts = contactList
+                        });
+                        lastContactCount = 0;
                     }
                 }
             }

@@ -475,37 +475,39 @@ class TrackpadCapture:
             while True:
                 contacts = self.backend.read_contacts()
                 
-                if contacts and self.is_capturing:
+                if contacts is not None and self.is_capturing:
                     timestamp = time.monotonic()
                     timestamp_ns = time.monotonic_ns()
                     
                     current_contacts = set()
                     
-                    for contact in contacts:
-                        contact_id = contact['ContactId']
-                        x = float(contact['X'])
-                        y = float(contact['Y'])
-                        
-                        current_contacts.add(contact_id)
-                        
-                        # New contact
-                        if contact_id not in previous_contacts:
-                            color = COLORS[contact_id % len(COLORS)]
-                            new_track = GestureTrack(contact_id, color)
-                            self.gesture_tracks[contact_id] = new_track
+                    # Process active contacts
+                    if len(contacts) > 0:
+                        for contact in contacts:
+                            contact_id = contact['ContactId']
+                            x = float(contact['X'])
+                            y = float(contact['Y'])
                             
-                            if on_finger_down:
-                                on_finger_down(contact_id)
-                        
-                        # Add point to track
-                        if contact_id in self.gesture_tracks:
-                            track = self.gesture_tracks[contact_id]
-                            track.add_point(x, y, timestamp, timestamp_ns)
+                            current_contacts.add(contact_id)
                             
-                            if on_point_added:
-                                on_point_added(contact_id, x, y)
+                            # New contact
+                            if contact_id not in previous_contacts:
+                                color = COLORS[contact_id % len(COLORS)]
+                                new_track = GestureTrack(contact_id, color)
+                                self.gesture_tracks[contact_id] = new_track
+                                
+                                if on_finger_down:
+                                    on_finger_down(contact_id)
+                            
+                            # Add point to track
+                            if contact_id in self.gesture_tracks:
+                                track = self.gesture_tracks[contact_id]
+                                track.add_point(x, y, timestamp, timestamp_ns)
+                                
+                                if on_point_added:
+                                    on_point_added(contact_id, x, y)
                     
-                    # Detect lifted contacts
+                    # Detect lifted contacts (when empty array received or contact missing)
                     lifted = previous_contacts - current_contacts
                     for contact_id in lifted:
                         if contact_id in self.gesture_tracks:
@@ -520,7 +522,7 @@ class TrackpadCapture:
                     
                     previous_contacts = current_contacts
                 
-                await asyncio.sleep(0.016)  # ~60 FPS
+                await asyncio.sleep(0.01)  # 100 FPS polling
         
         except Exception as e:
             print(f"Windows event processing error: {e}")
@@ -769,24 +771,8 @@ async def run_capture_loop(capture: TrackpadCapture,
             if event.type == pygame.QUIT:
                 running = False
             
-            # Windows: Use mouse events as touch simulation
-            elif is_windows and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if capture.backend and capture.is_capturing:
-                    mouse_tracking = True
-                    mouse_track_id += 1
-                    capture.backend.process_touch_down(mouse_track_id, event.pos[0], event.pos[1])
-                needs_redraw = True
-            
-            elif is_windows and event.type == pygame.MOUSEMOTION:
-                if capture.backend and mouse_tracking:
-                    capture.backend.process_touch_move(mouse_track_id, event.pos[0], event.pos[1])
-                needs_redraw = True
-            
-            elif is_windows and event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                if capture.backend and mouse_tracking:
-                    capture.backend.process_touch_up(mouse_track_id)
-                    mouse_tracking = False
-                needs_redraw = True
+            # Windows: Real touchpad input (no mouse simulation needed)
+            # The SimpleTouchpadReader handles everything via Raw Input API
             
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
