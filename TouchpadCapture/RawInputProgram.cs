@@ -485,11 +485,15 @@ namespace TouchpadCapture
                     Width = 400,
                     Height = 300,
                     WindowState = WindowState.Normal,
-                    WindowStartupLocation = System.Windows.WindowStartupLocation.TopRight,
+                    WindowStartupLocation = System.Windows.WindowStartupLocation.Manual,
                     Background = System.Windows.Media.Brushes.Black,
                     Topmost = true,  // Always on top
                     ShowInTaskbar = true
                 };
+                
+                // Position window in top-right corner
+                window.Left = System.Windows.SystemParameters.PrimaryScreenWidth - window.Width - 20;
+                window.Top = 20;
                 
                 // Add text display
                 var textBlock = new System.Windows.Controls.TextBlock
