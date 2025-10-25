@@ -312,9 +312,11 @@ Total distance traveled while drawing. Should be consistent for the same gesture
 python setup_windows_touchpad.py
 ```
 
-This automatically builds the C# library from source.
-
-**Prerequisites:** git and .NET SDK (script will check)
+**That's it!** The script automatically:
+- Installs git and .NET SDK (if missing)
+- Builds the C# library from source
+- Sets up Python.NET
+- Verifies everything works
 
 See [`README_WINDOWS_TOUCHPAD.md`](README_WINDOWS_TOUCHPAD.md) for details.
 

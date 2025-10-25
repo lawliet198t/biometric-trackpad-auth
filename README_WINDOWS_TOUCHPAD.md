@@ -1,21 +1,20 @@
 # Windows Multi-Touch Setup
 
-## Automatic Setup (Recommended)
+## Automatic Setup (One Command!)
 
 ```bash
 python setup_windows_touchpad.py
 ```
 
-This will:
-1. ✅ Check for git and .NET SDK
-2. ✅ Clone the repository
-3. ✅ Build the DLL from source
-4. ✅ Install pythonnet
-5. ✅ Verify everything works
+This will **automatically**:
+1. ✅ Install git (if missing)
+2. ✅ Install .NET SDK (if missing)
+3. ✅ Clone the repository
+4. ✅ Build the DLL from source
+5. ✅ Install pythonnet
+6. ✅ Verify everything works
 
-**Prerequisites:**
-- git: https://git-scm.com/download/win (or `winget install Git.Git`)
-- .NET SDK: https://dotnet.microsoft.com/download (or `winget install Microsoft.DotNet.SDK.6`)
+**No manual downloads needed!** The script installs everything automatically using winget.
 
 ---
 

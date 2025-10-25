@@ -146,28 +146,43 @@ def extract_dll_from_zip(zip_path, target_dir="."):
         traceback.print_exc()
         return False
 
-def check_dotnet():
-    """Check if .NET SDK is installed"""
-    print("Checking for .NET SDK...")
+def check_winget():
+    """Check if winget is available"""
+    try:
+        result = subprocess.run(
+            ["winget", "--version"],
+            capture_output=True,
+            text=True
+        )
+        return result.returncode == 0
+    except FileNotFoundError:
+        return False
+
+def install_with_winget(package_id, package_name):
+    """Install a package using winget"""
+    print(f"\nInstalling {package_name}...")
+    print("This may take a few minutes...")
     
     try:
         result = subprocess.run(
-            ["dotnet", "--version"],
+            ["winget", "install", "--id", package_id, "--silent", "--accept-source-agreements", "--accept-package-agreements"],
             capture_output=True,
             text=True
         )
         
         if result.returncode == 0:
-            version = result.stdout.strip()
-            print(f"✓ .NET SDK {version} is installed")
+            print(f"✓ {package_name} installed successfully")
             return True
         else:
-            return False
-    except FileNotFoundError:
+            print(f"⚠️  Installation may have issues: {result.stderr}")
+            # Sometimes winget returns non-zero even on success
+            return True
+    except Exception as e:
+        print(f"✗ Error installing {package_name}: {e}")
         return False
 
-def check_git():
-    """Check if git is installed"""
+def check_and_install_git():
+    """Check if git is installed, install if not"""
     print("Checking for git...")
     
     try:
@@ -181,9 +196,82 @@ def check_git():
             version = result.stdout.strip()
             print(f"✓ {version}")
             return True
-        else:
-            return False
     except FileNotFoundError:
+        pass
+    
+    print("✗ git not found")
+    
+    # Try to install with winget
+    if check_winget():
+        print("Installing git automatically...")
+        if install_with_winget("Git.Git", "git"):
+            # Refresh PATH
+            print("Verifying git installation...")
+            try:
+                result = subprocess.run(
+                    ["git", "--version"],
+                    capture_output=True,
+                    text=True
+                )
+                if result.returncode == 0:
+                    return True
+            except:
+                pass
+            
+            print("⚠️  git installed but not in PATH yet")
+            print("   You may need to restart your terminal")
+            print("   Or run: refreshenv (if using chocolatey)")
+            return False
+    else:
+        print("✗ winget not available")
+        print("  Install git manually: https://git-scm.com/download/win")
+        print("  Or use: winget install Git.Git")
+        return False
+
+def check_and_install_dotnet():
+    """Check if .NET SDK is installed, install if not"""
+    print("Checking for .NET SDK...")
+    
+    try:
+        result = subprocess.run(
+            ["dotnet", "--version"],
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode == 0:
+            version = result.stdout.strip()
+            print(f"✓ .NET SDK {version} is installed")
+            return True
+    except FileNotFoundError:
+        pass
+    
+    print("✗ .NET SDK not found")
+    
+    # Try to install with winget
+    if check_winget():
+        print("Installing .NET SDK automatically...")
+        if install_with_winget("Microsoft.DotNet.SDK.8", ".NET SDK"):
+            # Refresh PATH
+            print("Verifying .NET SDK installation...")
+            try:
+                result = subprocess.run(
+                    ["dotnet", "--version"],
+                    capture_output=True,
+                    text=True
+                )
+                if result.returncode == 0:
+                    return True
+            except:
+                pass
+            
+            print("⚠️  .NET SDK installed but not in PATH yet")
+            print("   You may need to restart your terminal")
+            return False
+    else:
+        print("✗ winget not available")
+        print("  Install .NET SDK manually: https://dotnet.microsoft.com/download")
+        print("  Or use: winget install Microsoft.DotNet.SDK.8")
         return False
 
 def build_from_source():
@@ -317,25 +405,35 @@ def main():
     if not skip_download:
         print_header("Step 2: Building C# Library from Source")
         
-        # Check prerequisites
-        print("Checking prerequisites...")
+        # Check and install prerequisites
+        print("Checking and installing prerequisites...")
         
-        has_git = check_git()
-        has_dotnet = check_dotnet()
+        has_git = check_and_install_git()
+        has_dotnet = check_and_install_dotnet()
         
-        if not has_git:
-            print("\n✗ git is not installed")
-            print("  Download from: https://git-scm.com/download/win")
-            print("  Or use: winget install Git.Git")
+        if not has_git or not has_dotnet:
+            print("\n" + "=" * 70)
+            print("⚠️  PREREQUISITES MISSING")
+            print("=" * 70)
+            print()
+            
+            if not has_git:
+                print("git is required but could not be installed automatically.")
+                print("  Install manually: https://git-scm.com/download/win")
+                print("  Or use: winget install Git.Git")
+                print()
+            
+            if not has_dotnet:
+                print(".NET SDK is required but could not be installed automatically.")
+                print("  Install manually: https://dotnet.microsoft.com/download")
+                print("  Or use: winget install Microsoft.DotNet.SDK.8")
+                print()
+            
+            print("After installing, restart your terminal and run this script again.")
+            print()
             return 1
         
-        if not has_dotnet:
-            print("\n✗ .NET SDK is not installed")
-            print("  Download from: https://dotnet.microsoft.com/download")
-            print("  Or use: winget install Microsoft.DotNet.SDK.6")
-            return 1
-        
-        print("\n✓ All prerequisites installed")
+        print("\n✓ All prerequisites ready")
         
         # Build from source
         if not build_from_source():
