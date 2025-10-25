@@ -540,66 +540,77 @@ namespace TouchpadCapture
             }
         }
         
+        private static DateTime lastUiUpdate = DateTime.MinValue;
+        private static DateTime lastJsonOutput = DateTime.MinValue;
+        private static readonly TimeSpan uiUpdateInterval = TimeSpan.FromMilliseconds(100); // Update UI every 100ms
+        private static readonly TimeSpan jsonOutputInterval = TimeSpan.FromMilliseconds(16); // Output JSON at 60 FPS
+        
         private static IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
             if (msg == TouchpadHelper.WM_INPUT)
             {
                 var contacts = TouchpadHelper.ParseInput(lParam);
                 
-                if (contacts != null)
+                if (contacts != null && contacts.Length > 0)
                 {
+                    var now = DateTime.UtcNow;
                     var contactList = new List<ContactData>();
                     long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     
-                    // Update UI
-                    if (window.Tag is System.Windows.Controls.TextBlock textBlock)
+                    // Build contact list
+                    foreach (var contact in contacts)
                     {
-                        if (contacts.Length > 0)
+                        contactList.Add(new ContactData
                         {
-                            var text = $"✓ {contacts.Length} finger(s) detected:\n\n";
+                            ContactId = contact.ContactId,
+                            X = contact.X,
+                            Y = contact.Y,
+                            Timestamp = timestamp
+                        });
+                    }
+                    
+                    // Update UI (throttled to 10 FPS)
+                    if (now - lastUiUpdate > uiUpdateInterval)
+                    {
+                        if (window.Tag is System.Windows.Controls.TextBlock textBlock)
+                        {
+                            var text = $"✓ {contacts.Length} finger(s)\n\n";
                             foreach (var contact in contacts)
                             {
-                                text += $"Finger {contact.ContactId}:\n";
-                                text += $"  X = {contact.X}\n";
-                                text += $"  Y = {contact.Y}\n\n";
-                                
-                                contactList.Add(new ContactData
-                                {
-                                    ContactId = contact.ContactId,
-                                    X = contact.X,
-                                    Y = contact.Y,
-                                    Timestamp = timestamp
-                                });
+                                text += $"#{contact.ContactId}: X={contact.X} Y={contact.Y}\n";
                             }
                             textBlock.Text = text;
                         }
-                        else
-                        {
-                            textBlock.Text = "Waiting for touch...";
-                        }
+                        lastUiUpdate = now;
                     }
                     
-                    // Output JSON (only if there are contacts)
-                    if (contactList.Count > 0)
+                    // Output JSON (throttled to 60 FPS)
+                    if (now - lastJsonOutput > jsonOutputInterval)
                     {
                         OutputJson(new TouchOutput
                         {
                             Type = "contacts",
                             Contacts = contactList
                         });
+                        lastJsonOutput = now;
                     }
                 }
             }
             return IntPtr.Zero;
         }
         
+        private static readonly System.Text.Json.JsonSerializerOptions jsonOptions = new()
+        {
+            WriteIndented = false  // Compact JSON for speed
+        };
+        
         private static void OutputJson(TouchOutput output)
         {
             try
             {
-                var json = JsonSerializer.Serialize(output);
+                var json = JsonSerializer.Serialize(output, jsonOptions);
                 Console.WriteLine(json);
-                Console.Out.Flush();
+                // Don't flush every time - let buffer handle it
             }
             catch (Exception ex)
             {

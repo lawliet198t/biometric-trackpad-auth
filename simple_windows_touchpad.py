@@ -168,25 +168,31 @@ def main():
     print("="*60 + "\n")
     
     last_contact_count = 0
+    last_print_time = time.time()
+    print_interval = 0.1  # Print every 100ms for smoother display
     
     try:
         while True:
             contacts = reader.read_contacts()
             
             if contacts is not None:  # Got data
+                current_time = time.time()
+                
                 if len(contacts) > 0:
-                    # Active touches - print in real-time
-                    print(f"\r[{time.strftime('%H:%M:%S')}] {len(contacts)} finger(s): ", end="")
-                    for contact in contacts:
-                        print(f"[{contact['ContactId']}: X={contact['X']}, Y={contact['Y']}] ", end="")
-                    print("   ", end="", flush=True)
+                    # Active touches - print throttled
+                    if current_time - last_print_time > print_interval:
+                        print(f"\r[{time.strftime('%H:%M:%S')}] {len(contacts)} finger(s): ", end="")
+                        for contact in contacts:
+                            print(f"[{contact['ContactId']}: X={contact['X']}, Y={contact['Y']}] ", end="")
+                        print("   ", end="", flush=True)
+                        last_print_time = current_time
                     last_contact_count = len(contacts)
                 elif last_contact_count > 0:
                     # Fingers lifted
                     print(f"\r[{time.strftime('%H:%M:%S')}] Fingers lifted" + " "*50)
                     last_contact_count = 0
             
-            time.sleep(0.016)  # ~60 FPS
+            time.sleep(0.01)  # 100 FPS polling, but throttled output
     
     except KeyboardInterrupt:
         print("\n\nStopping...")
