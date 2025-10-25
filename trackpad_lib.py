@@ -42,31 +42,14 @@ if IS_LINUX:
         print("⚠️  evdev not installed. Install with: pip install evdev")
         LINUX_AVAILABLE = False
 elif IS_WINDOWS:
-    # Try UI Automation version first (reads from RawInput.Touchpad UI)
+    # Use simple Windows touchpad implementation
     try:
-        from windows_touchpad_uiautomation import (
-            WindowsTouchpadUIAutomation as WindowsTouchpadCapture,
-            detect_windows_touchpad,
-            list_windows_touchpads,
-            TouchPoint as WinTouchPoint
-        )
+        from simple_windows_touchpad import SimpleTouchpadReader
         WINDOWS_AVAILABLE = True
-        print("✓ Using UI Automation backend (true multi-touch)")
-    except (ImportError, FileNotFoundError) as e:
-        # Fallback to mouse simulation
-        try:
-            from windows_touchpad import (
-                WindowsTouchpadCapture,
-                detect_windows_touchpad,
-                list_windows_touchpads,
-                TouchPoint as WinTouchPoint
-            )
-            WINDOWS_AVAILABLE = True
-            print("⚠️  Using mouse simulation (single-point only)")
-            print("   For multi-touch, install: pip install pywinauto")
-        except ImportError:
-            print("⚠️  Windows touchpad support not available")
-            WINDOWS_AVAILABLE = False
+        print("✓ Using simple Windows touchpad (direct raw values)")
+    except ImportError:
+        print("⚠️  Windows touchpad support not available")
+        WINDOWS_AVAILABLE = False
 else:
     LINUX_AVAILABLE = False
     WINDOWS_AVAILABLE = False
@@ -84,6 +67,38 @@ COLORS = [
     (0, 255, 0),     # Lime
     (255, 0, 255),   # Magenta
 ]
+
+
+def detect_windows_touchpad() -> bool:
+    """Detect if Windows Precision Touchpad is available"""
+    if not IS_WINDOWS:
+        return False
+    
+    try:
+        import winreg
+        key = winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\PrecisionTouchPad",
+            0,
+            winreg.KEY_READ
+        )
+        winreg.CloseKey(key)
+        return True
+    except:
+        return False
+
+
+def list_windows_touchpads() -> List[Dict[str, str]]:
+    """List Windows touchpad devices"""
+    if not detect_windows_touchpad():
+        return []
+    
+    return [{
+        'path': 'Simple',
+        'name': 'Windows Precision Touchpad (Simple Direct)',
+        'score': 100,
+        'api': 'WPF Touch Events'
+    }]
 
 
 def detect_trackpad() -> Optional[Union[str, bool]]:
@@ -315,9 +330,9 @@ class TrackpadCapture:
         
         # Windows backend
         if self.is_windows:
-            self.backend = WindowsTouchpadCapture()
+            self.backend = SimpleTouchpadReader()
             self.device_path = "Windows Touch API"
-            print(f"🔍 Using Windows Precision Touchpad")
+            print(f"🔍 Using Simple Windows Touchpad")
         
         # Linux backend
         elif self.is_linux:
@@ -364,7 +379,7 @@ class TrackpadCapture:
     def open_device(self) -> bool:
         """Open the trackpad device and read capabilities"""
         if self.is_windows:
-            return self.backend.open_device()
+            return self.backend.start()
         
         elif self.is_linux:
             try:
@@ -411,43 +426,29 @@ class TrackpadCapture:
     
     def start_capture(self):
         """Start capturing gestures"""
+        self.is_capturing = True
+        self.gesture_tracks.clear()
+        self.completed_tracks.clear()
         if self.is_windows:
-            self.backend.start_capture()
-        else:
-            self.is_capturing = True
-            self.gesture_tracks.clear()
-            self.completed_tracks.clear()
+            self.backend.capturing = True
+            self.backend.current_gesture = []
     
     def stop_capture(self):
         """Stop capturing gestures"""
+        self.is_capturing = False
         if self.is_windows:
-            self.backend.stop_capture()
-        else:
-            self.is_capturing = False
+            self.backend.capturing = False
     
     def clear_gestures(self):
         """Clear all gesture data"""
+        self.gesture_tracks.clear()
+        self.completed_tracks.clear()
         if self.is_windows:
-            self.backend.clear_gestures()
-        else:
-            self.gesture_tracks.clear()
-            self.completed_tracks.clear()
+            self.backend.current_gesture = []
     
     def get_all_tracks(self) -> List:
         """Get all tracks (active + completed)"""
-        if self.is_windows:
-            # Convert Windows format to GestureTrack format
-            tracks = []
-            for i, points in enumerate(self.backend.get_all_tracks()):
-                if points:
-                    color = COLORS[i % len(COLORS)]
-                    track = GestureTrack(i, color)
-                    track.points = points
-                    track.is_active = False
-                    tracks.append(track)
-            return tracks
-        else:
-            return list(self.gesture_tracks.values()) + self.completed_tracks
+        return list(self.gesture_tracks.values()) + self.completed_tracks
     
     async def process_device_events(self, on_finger_down: Optional[Callable] = None,
                                     on_finger_up: Optional[Callable] = None,
@@ -461,11 +462,68 @@ class TrackpadCapture:
             on_point_added(slot_id, x, y): Called when point is added
         """
         if self.is_windows:
-            # Windows backend handles events via pygame
-            await self.backend.process_device_events(on_finger_down, on_finger_up, on_point_added)
+            await self._process_windows_events(on_finger_down, on_finger_up, on_point_added)
         
         elif self.is_linux:
             await self._process_linux_events(on_finger_down, on_finger_up, on_point_added)
+    
+    async def _process_windows_events(self, on_finger_down, on_finger_up, on_point_added):
+        """Process Windows touchpad events"""
+        previous_contacts = set()
+        
+        try:
+            while True:
+                contacts = self.backend.read_contacts()
+                
+                if contacts and self.is_capturing:
+                    timestamp = time.monotonic()
+                    timestamp_ns = time.monotonic_ns()
+                    
+                    current_contacts = set()
+                    
+                    for contact in contacts:
+                        contact_id = contact['ContactId']
+                        x = float(contact['X'])
+                        y = float(contact['Y'])
+                        
+                        current_contacts.add(contact_id)
+                        
+                        # New contact
+                        if contact_id not in previous_contacts:
+                            color = COLORS[contact_id % len(COLORS)]
+                            new_track = GestureTrack(contact_id, color)
+                            self.gesture_tracks[contact_id] = new_track
+                            
+                            if on_finger_down:
+                                on_finger_down(contact_id)
+                        
+                        # Add point to track
+                        if contact_id in self.gesture_tracks:
+                            track = self.gesture_tracks[contact_id]
+                            track.add_point(x, y, timestamp, timestamp_ns)
+                            
+                            if on_point_added:
+                                on_point_added(contact_id, x, y)
+                    
+                    # Detect lifted contacts
+                    lifted = previous_contacts - current_contacts
+                    for contact_id in lifted:
+                        if contact_id in self.gesture_tracks:
+                            track = self.gesture_tracks[contact_id]
+                            track.is_active = False
+                            self.completed_tracks.append(track)
+                            
+                            if on_finger_up:
+                                on_finger_up(contact_id, track)
+                            
+                            del self.gesture_tracks[contact_id]
+                    
+                    previous_contacts = current_contacts
+                
+                await asyncio.sleep(0.016)  # ~60 FPS
+        
+        except Exception as e:
+            print(f"Windows event processing error: {e}")
     
     async def _process_linux_events(self, on_finger_down, on_finger_up, on_point_added):
         """Process Linux evdev events"""
