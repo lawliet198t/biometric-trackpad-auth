@@ -291,6 +291,17 @@ namespace TouchpadCapture
             IntPtr Report,
             uint ReportLength);
         
+        [DllImport("Hid.dll", CharSet = CharSet.Auto)]
+        private static extern uint HidP_GetUsages(
+            HIDP_REPORT_TYPE ReportType,
+            ushort UsagePage,
+            ushort LinkCollection,
+            [Out] ushort[] UsageList,
+            ref uint UsageLength,
+            IntPtr PreparsedData,
+            IntPtr Report,
+            uint ReportLength);
+        
         #endregion
         
         public static bool Exists()
@@ -405,6 +416,9 @@ namespace TouchpadCapture
                 uint contactCount = 0;
                 TouchpadContactCreator creator = new();
                 List<TouchpadContact> contacts = new();
+                
+                // Debug: Track all usage values we see
+                var debugInfo = new System.Text.StringBuilder();
                 
                 foreach (var valueCap in valueCaps.OrderBy(x => x.LinkCollection))
                 {
@@ -525,6 +539,12 @@ namespace TouchpadCapture
                 window.SourceInitialized += OnSourceInitialized;
                 window.Tag = textBlock;  // Store reference
                 
+                // Start heartbeat timer to send updates even when not touching
+                heartbeatTimer = new System.Windows.Threading.DispatcherTimer();
+                heartbeatTimer.Interval = heartbeatInterval;
+                heartbeatTimer.Tick += HeartbeatTick;
+                heartbeatTimer.Start();
+                
                 OutputJson(new TouchOutput
                 {
                     Type = "ready",
@@ -555,11 +575,42 @@ namespace TouchpadCapture
             }
         }
         
+        private static void HeartbeatTick(object sender, EventArgs e)
+        {
+            // Send periodic updates even when not touching
+            // This allows Python to detect when all fingers are lifted
+            var now = DateTime.UtcNow;
+            
+            if (now - lastJsonOutput > jsonOutputInterval)
+            {
+                // Send empty contact list if nothing is touching
+                OutputJson(new TouchOutput
+                {
+                    Type = "contacts",
+                    Contacts = new List<ContactData>()
+                });
+                lastJsonOutput = now;
+                
+                // Update UI
+                if (now - lastUiUpdate > uiUpdateInterval)
+                {
+                    if (window.Tag is System.Windows.Controls.TextBlock textBlock)
+                    {
+                        textBlock.Text = "Waiting for touch...";
+                    }
+                    lastUiUpdate = now;
+                }
+            }
+        }
+        
         private static DateTime lastUiUpdate = DateTime.MinValue;
         private static DateTime lastJsonOutput = DateTime.MinValue;
-        private static readonly TimeSpan uiUpdateInterval = TimeSpan.FromMilliseconds(100); // Update UI every 100ms
-        private static readonly TimeSpan jsonOutputInterval = TimeSpan.FromMilliseconds(16); // Output JSON at 60 FPS
+        private static DateTime lastHeartbeat = DateTime.MinValue;
+        private static readonly TimeSpan uiUpdateInterval = TimeSpan.FromMilliseconds(100);
+        private static readonly TimeSpan jsonOutputInterval = TimeSpan.FromMilliseconds(16);
+        private static readonly TimeSpan heartbeatInterval = TimeSpan.FromMilliseconds(50); // Send empty updates
         private static int lastContactCount = 0;
+        private static System.Windows.Threading.DispatcherTimer heartbeatTimer;
         
         private static IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
@@ -607,10 +658,9 @@ namespace TouchpadCapture
                         lastUiUpdate = now;
                     }
                     
-                    // Output JSON (throttled to 60 FPS)
-                    if (now - lastJsonOutput > jsonOutputInterval)
+                    // Output JSON (throttled to 60 FPS) - only if there are contacts
+                    if (contacts.Length > 0 && now - lastJsonOutput > jsonOutputInterval)
                     {
-                        // Always output, even if empty (to signal finger lift)
                         OutputJson(new TouchOutput
                         {
                             Type = "contacts",
@@ -618,16 +668,6 @@ namespace TouchpadCapture
                         });
                         lastJsonOutput = now;
                         lastContactCount = contacts.Length;
-                    }
-                    // If contacts went from >0 to 0, send immediately (finger lift)
-                    else if (lastContactCount > 0 && contacts.Length == 0)
-                    {
-                        OutputJson(new TouchOutput
-                        {
-                            Type = "contacts",
-                            Contacts = contactList
-                        });
-                        lastContactCount = 0;
                     }
                 }
             }
