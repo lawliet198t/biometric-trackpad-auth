@@ -42,16 +42,16 @@ if IS_LINUX:
         print("⚠️  evdev not installed. Install with: pip install evdev")
         LINUX_AVAILABLE = False
 elif IS_WINDOWS:
-    # Try C# subprocess version first (true multi-touch)
+    # Try UI Automation version first (reads from RawInput.Touchpad UI)
     try:
-        from windows_touchpad_subprocess import (
-            WindowsTouchpadSubprocess as WindowsTouchpadCapture,
+        from windows_touchpad_uiautomation import (
+            WindowsTouchpadUIAutomation as WindowsTouchpadCapture,
             detect_windows_touchpad,
             list_windows_touchpads,
             TouchPoint as WinTouchPoint
         )
         WINDOWS_AVAILABLE = True
-        print("✓ Using C# subprocess backend (true multi-touch)")
+        print("✓ Using UI Automation backend (true multi-touch)")
     except (ImportError, FileNotFoundError) as e:
         # Fallback to mouse simulation
         try:
@@ -63,7 +63,7 @@ elif IS_WINDOWS:
             )
             WINDOWS_AVAILABLE = True
             print("⚠️  Using mouse simulation (single-point only)")
-            print("   For multi-touch, run: build_touchpad.bat")
+            print("   For multi-touch, install: pip install pywinauto")
         except ImportError:
             print("⚠️  Windows touchpad support not available")
             WINDOWS_AVAILABLE = False

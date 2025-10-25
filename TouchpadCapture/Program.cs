@@ -98,51 +98,130 @@ namespace TouchpadCapture
         {
             try
             {
-                // Try to find a property or field that contains contact data
-                // Common names: Contacts, TouchContacts, CurrentContacts, etc.
-                
+                // Get all properties and fields
                 var properties = mainWindowType.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 var fields = mainWindowType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 
-                // Look for anything that might contain contact data
-                foreach (var prop in properties)
+                // First, try to find the TextBlock or TextBox that displays the contact info
+                // The UI is showing the data, so let's read from the UI elements
+                var contentProp = mainWindowType.GetProperty("Content");
+                if (contentProp != null)
                 {
-                    if (prop.Name.Contains("Contact") || prop.Name.Contains("Touch"))
+                    var content = contentProp.GetValue(window);
+                    if (content != null)
                     {
-                        try
+                        // Try to find TextBlock or TextBox in the content
+                        var contentType = content.GetType();
+                        var textProp = contentType.GetProperty("Text");
+                        if (textProp != null)
                         {
-                            var value = prop.GetValue(window);
-                            if (value != null)
+                            var text = textProp.GetValue(content) as string;
+                            if (!string.IsNullOrEmpty(text))
                             {
-                                ProcessContactData(value);
+                                ParseContactsFromText(text);
                                 return;
                             }
                         }
-                        catch { }
                     }
+                }
+                
+                // Try direct property/field access
+                foreach (var prop in properties)
+                {
+                    try
+                    {
+                        var value = prop.GetValue(window);
+                        if (value != null)
+                        {
+                            // Check if it's a collection
+                            if (value is System.Collections.IEnumerable enumerable && 
+                                !(value is string))
+                            {
+                                ProcessContactData(value);
+                            }
+                        }
+                    }
+                    catch { }
                 }
                 
                 foreach (var field in fields)
                 {
-                    if (field.Name.Contains("Contact") || field.Name.Contains("Touch") || field.Name.Contains("contact") || field.Name.Contains("touch"))
+                    try
                     {
-                        try
+                        var value = field.GetValue(window);
+                        if (value != null)
                         {
-                            var value = field.GetValue(window);
-                            if (value != null)
+                            // Check if it's a collection
+                            if (value is System.Collections.IEnumerable enumerable && 
+                                !(value is string))
                             {
                                 ProcessContactData(value);
-                                return;
                             }
                         }
-                        catch { }
                     }
+                    catch { }
                 }
             }
             catch (Exception ex)
             {
-                // Silently ignore polling errors
+                // Output error once for debugging
+                Console.Error.WriteLine($"Poll error: {ex.Message}");
             }
+        }
+        
+        static void ParseContactsFromText(string text)
+        {
+            // Parse text like "Contact 0: X=500, Y=300"
+            // This is a fallback if we can't access the data directly
+            try
+            {
+                var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                var contacts = new List<TouchPointData>();
+                
+                foreach (var line in lines)
+                {
+                    if (line.Contains("Contact") && line.Contains("X=") && line.Contains("Y="))
+                    {
+                        // Extract contact ID, X, Y
+                        var parts = line.Split(new[] { ':', '=', ',' }, StringSplitOptions.RemoveEmptyEntries);
+                        
+                        int? contactId = null;
+                        double? x = null;
+                        double? y = null;
+                        
+                        for (int i = 0; i < parts.Length - 1; i++)
+                        {
+                            if (parts[i].Trim() == "Contact")
+                                int.TryParse(parts[i + 1].Trim(), out var id);
+                            else if (parts[i].Trim() == "X")
+                                double.TryParse(parts[i + 1].Trim(), out var xVal);
+                            else if (parts[i].Trim() == "Y")
+                                double.TryParse(parts[i + 1].Trim(), out var yVal);
+                        }
+                        
+                        if (contactId.HasValue && x.HasValue && y.HasValue)
+                        {
+                            contacts.Add(new TouchPointData
+                            {
+                                ContactId = contactId.Value,
+                                X = x.Value,
+                                Y = y.Value,
+                                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                            });
+                        }
+                    }
+                }
+                
+                if (contacts.Count > 0)
+                {
+                    OutputJson(new TouchEvent
+                    {
+                        Type = "contacts",
+                        Contacts = contacts
+                    });
+                }
+            }
+            catch { }
         }
         
         static void ProcessContactData(object contactData)
