@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Windows Precision Touchpad via Subprocess
+Windows Precision Touchpad via C# Subprocess
 
-Uses the RawInput.Touchpad EXE via subprocess communication.
-This avoids all Python.NET complexity!
+Uses TouchpadCapture.exe (C# console app) via subprocess communication.
+TRUE multi-touch support with zero Python.NET complexity!
 
 Requirements:
-    - RawInput.Touchpad.exe (built from source)
+    - TouchpadCapture.exe (build with: build_touchpad.bat)
     - No Python.NET needed!
 """
 
@@ -41,6 +41,7 @@ class WindowsTouchpadSubprocess:
         self.exe_path = exe_path or self._find_exe()
         self.screen_width = 1200
         self.screen_height = 800
+        self.ready = False
         
         # Touch tracking
         self.active_touches: Dict[int, List[TouchPoint]] = {}
@@ -61,11 +62,11 @@ class WindowsTouchpadSubprocess:
         self.previous_contacts = set()
     
     def _find_exe(self) -> str:
-        """Try to find the RawInput.Touchpad EXE"""
+        """Try to find the TouchpadCapture EXE"""
         possible_paths = [
-            "RawInput.Touchpad.exe",
-            "bin/RawInput.Touchpad.exe",
-            Path(__file__).parent / "RawInput.Touchpad.exe",
+            "TouchpadCapture.exe",
+            "bin/TouchpadCapture.exe",
+            Path(__file__).parent / "TouchpadCapture.exe",
         ]
         
         for path in possible_paths:
@@ -73,9 +74,8 @@ class WindowsTouchpadSubprocess:
                 return str(Path(path).absolute())
         
         raise FileNotFoundError(
-            "RawInput.Touchpad.exe not found!\n"
-            "Build it from source or download from:\n"
-            "https://github.com/emoacht/RawInput.Touchpad/releases"
+            "TouchpadCapture.exe not found!\n"
+            "Build it with: build_touchpad.bat"
         )
     
     def _read_output(self):
@@ -239,10 +239,13 @@ class WindowsTouchpadSubprocess:
                     
                     # Process the data
                     if isinstance(data, dict):
-                        if data.get('Type') == 'contacts':
+                        if data.get('Type') == 'ready':
+                            self.ready = True
+                            print(f"✓ {data.get('Message')}")
+                        elif data.get('Type') == 'contacts':
                             self._process_contacts(data.get('Contacts', []))
                         elif data.get('Type') == 'error':
-                            print(f"Error from subprocess: {data.get('Message')}")
+                            print(f"✗ Error from C# app: {data.get('Message')}")
                     
                 except queue.Empty:
                     pass

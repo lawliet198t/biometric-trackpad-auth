@@ -42,42 +42,31 @@ if IS_LINUX:
         print("⚠️  evdev not installed. Install with: pip install evdev")
         LINUX_AVAILABLE = False
 elif IS_WINDOWS:
-    # Try Python.NET version first (true multi-touch)
+    # Try C# subprocess version first (true multi-touch)
     try:
-        from windows_touchpad_pythonnet import (
-            WindowsTouchpadPythonNET as WindowsTouchpadCapture,
+        from windows_touchpad_subprocess import (
+            WindowsTouchpadSubprocess as WindowsTouchpadCapture,
             detect_windows_touchpad,
             list_windows_touchpads,
             TouchPoint as WinTouchPoint
         )
         WINDOWS_AVAILABLE = True
-        print("✓ Using Python.NET multi-touch backend")
+        print("✓ Using C# subprocess backend (true multi-touch)")
     except (ImportError, FileNotFoundError) as e:
-        # Fallback to subprocess version
+        # Fallback to mouse simulation
         try:
-            from windows_touchpad_csharp import (
-                WindowsTouchpadCSharp as WindowsTouchpadCapture,
+            from windows_touchpad import (
+                WindowsTouchpadCapture,
                 detect_windows_touchpad,
                 list_windows_touchpads,
                 TouchPoint as WinTouchPoint
             )
             WINDOWS_AVAILABLE = True
-            print("✓ Using C# subprocess backend")
-        except (ImportError, FileNotFoundError):
-            # Final fallback to mouse simulation
-            try:
-                from windows_touchpad import (
-                    WindowsTouchpadCapture,
-                    detect_windows_touchpad,
-                    list_windows_touchpads,
-                    TouchPoint as WinTouchPoint
-                )
-                WINDOWS_AVAILABLE = True
-                print("⚠️  Using mouse simulation (single-point only)")
-                print("   For multi-touch, see README_WINDOWS_TOUCHPAD.md")
-            except ImportError:
-                print("⚠️  Windows touchpad support not available")
-                WINDOWS_AVAILABLE = False
+            print("⚠️  Using mouse simulation (single-point only)")
+            print("   For multi-touch, run: build_touchpad.bat")
+        except ImportError:
+            print("⚠️  Windows touchpad support not available")
+            WINDOWS_AVAILABLE = False
 else:
     LINUX_AVAILABLE = False
     WINDOWS_AVAILABLE = False
