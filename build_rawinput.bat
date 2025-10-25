@@ -11,10 +11,10 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-REM Build the Raw Input program
+REM Build the Raw Input program (self-contained)
 cd TouchpadCapture
-echo Building RawInputProgram.csproj...
-dotnet build RawInputProgram.csproj -c Release -o bin
+echo Building RawInputProgram.csproj (self-contained)...
+dotnet publish RawInputProgram.csproj -c Release -o bin
 
 if %ERRORLEVEL% EQU 0 (
     echo.
