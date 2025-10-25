@@ -317,25 +317,33 @@ def build_from_source():
             print("✓ Build successful")
             
             # Find and copy DLL
-            print("\n3. Copying DLL...")
-            dll_search_paths = [
-                source_path / "bin" / "Release" / "net6.0" / DLL_NAME,
-                source_path / "bin" / "Release" / "net5.0" / DLL_NAME,
-                source_path / "RawInput.Touchpad" / "bin" / "Release" / "net6.0" / DLL_NAME,
-            ]
+            print("\n3. Finding built DLL...")
             
+            # Search recursively for the DLL
             dll_found = None
-            for dll_path in dll_search_paths:
-                if dll_path.exists():
+            for dll_path in repo_path.rglob(DLL_NAME):
+                # Skip obj directories
+                if "obj" not in str(dll_path):
                     dll_found = dll_path
+                    print(f"  Found: {dll_path}")
                     break
             
             if not dll_found:
                 print("✗ Could not find built DLL")
-                print("  Searched in:")
-                for p in dll_search_paths:
-                    print(f"    - {p}")
+                print("  Searching entire build output...")
+                
+                # List all DLLs found
+                all_dlls = list(repo_path.rglob("*.dll"))
+                if all_dlls:
+                    print("  Found these DLLs:")
+                    for dll in all_dlls[:10]:  # Show first 10
+                        print(f"    - {dll}")
+                else:
+                    print("  No DLLs found in build output")
+                
                 return False
+            
+            print("\n4. Copying DLL...")
             
             # Copy to project directory
             target_path = Path(DLL_NAME)
