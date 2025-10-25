@@ -305,16 +305,14 @@ Total distance traveled while drawing. Should be consistent for the same gesture
 - Log out and log back in
 - Or run with sudo (not recommended)
 
-### Windows touchpad not detected
-- Ensure Windows Precision Touchpad is enabled:
-  - Settings > Devices > Touchpad
-  - Make sure touchpad is enabled
-- Check if your laptop has Precision Touchpad:
-  - Most modern laptops (2016+) have it
-  - Look for "Precision Touchpad" in device settings
-- **Note**: Windows version currently uses mouse simulation (single-point)
-  - For TRUE multi-touch on Windows, see `README_WINDOWS_TOUCHPAD.md`
-  - Requires C# bridge (proven solution)
+### Windows multi-touch setup
+**For TRUE multi-touch on Windows (all 5 fingers!):**
+```bash
+python setup_windows_touchpad.py
+```
+This automatically downloads the C# library and sets everything up.
+
+See [`README_WINDOWS_TOUCHPAD.md`](README_WINDOWS_TOUCHPAD.md) for details.
 
 ### Real-time metrics not updating
 - Draw more points (draw slower or longer path)
