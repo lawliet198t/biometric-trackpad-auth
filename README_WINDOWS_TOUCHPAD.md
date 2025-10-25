@@ -1,44 +1,70 @@
 # Windows Multi-Touch Setup
 
-## Quick Start (1 Minute)
+## Important Note
 
-```bash
-python setup_windows_touchpad.py
-```
+The pre-built releases only contain an **EXE file**, not a DLL. To use Python.NET, you need to **build from source**.
 
-This automatically downloads the C# library, installs dependencies, and verifies everything works.
+## Option 1: Build from Source (Recommended for Python.NET)
 
----
+### Prerequisites
+- .NET 6 SDK: https://dotnet.microsoft.com/download
 
-## What You Get
+### Steps
 
-- ✅ TRUE multi-touch (all 5 fingers!)
-- ✅ Automatic download and setup
-- ✅ Works just like Linux version
+1. **Clone and build:**
+   ```bash
+   git clone https://github.com/emoacht/RawInput.Touchpad.git
+   cd RawInput.Touchpad/Source
+   dotnet build -c Release
+   ```
 
----
+2. **Copy DLL to your project:**
+   ```bash
+   copy bin\Release\net6.0\RawInput.Touchpad.dll ..\..\your-project\
+   ```
 
-## Manual Setup (if automatic fails)
-
-1. **Install pythonnet:**
+3. **Install pythonnet:**
    ```bash
    pip install pythonnet
    ```
 
-2. **Download C# library:**
-   - Go to: https://github.com/emoacht/RawInput.Touchpad/releases
-   - Download latest ZIP
-   - Extract `RawInput.Touchpad.dll` to your project folder
-
-3. **Test:**
+4. **Test:**
    ```bash
    python test_windows_multitouch.py
    ```
 
-4. **Run:**
+5. **Run:**
    ```bash
    python realtime_trainer.py
    ```
+
+---
+
+## Option 2: Use Pre-built EXE (Simpler, Test Only)
+
+1. **Download:**
+   - Go to: https://github.com/emoacht/RawInput.Touchpad/releases
+   - Download `RawInput.Touchpad.exe`
+
+2. **Run to test your touchpad:**
+   ```bash
+   RawInput.Touchpad.exe
+   ```
+   
+   Touch your touchpad - you should see all 5 fingers!
+
+3. **This confirms your touchpad works**, but you'll need Option 1 for Python integration.
+
+---
+
+## Option 3: Use Linux (Easiest!)
+
+Your touchpad already works perfectly on Linux:
+```bash
+python realtime_trainer.py  # Just works!
+```
+
+No setup needed on Linux! ✅
 
 ---
 

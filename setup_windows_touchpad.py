@@ -53,8 +53,14 @@ def find_zip_asset(release_data):
     if not release_data or 'assets' not in release_data:
         return None
     
+    # Look for ZIP file
     for asset in release_data['assets']:
         if asset['name'].endswith('.zip'):
+            return asset
+    
+    # If no ZIP, look for EXE
+    for asset in release_data['assets']:
+        if asset['name'].endswith('.exe'):
             return asset
     
     return None
@@ -93,10 +99,15 @@ def extract_dll_from_zip(zip_path, target_dir="."):
             dll_files = [f for f in file_list if f.endswith(DLL_NAME)]
             
             if not dll_files:
-                print(f"✗ {DLL_NAME} not found in ZIP")
-                print("  Available files:")
-                for f in file_list:
-                    print(f"    - {f}")
+                print(f"⚠️  {DLL_NAME} not found in ZIP")
+                print("  This release only contains an EXE file.")
+                print("  You'll need to build from source to get the DLL.")
+                print()
+                print("  Options:")
+                print("  1. Build from source (requires .NET SDK)")
+                print("  2. Use the EXE with subprocess communication")
+                print()
+                print("  See README_WINDOWS_TOUCHPAD.md for instructions")
                 return False
             
             # Extract the first matching DLL
@@ -221,6 +232,24 @@ def main():
         
         # Extract DLL
         if not extract_dll_from_zip(zip_filename):
+            print("\n" + "=" * 70)
+            print("⚠️  DLL NOT AVAILABLE IN PRE-BUILT RELEASE")
+            print("=" * 70)
+            print()
+            print("The pre-built release only contains an EXE file.")
+            print("To get the DLL for Python.NET integration, you need to build from source.")
+            print()
+            print("Option 1: Build from source (for Python integration)")
+            print("  1. Install .NET SDK: https://dotnet.microsoft.com/download")
+            print("  2. Clone: git clone https://github.com/emoacht/RawInput.Touchpad.git")
+            print("  3. Build: cd RawInput.Touchpad/Source && dotnet build -c Release")
+            print("  4. Copy DLL: copy bin\\Release\\net6.0\\RawInput.Touchpad.dll to your project")
+            print()
+            print("Option 2: Use Linux (easiest!)")
+            print("  Your touchpad already works perfectly on Linux - no setup needed!")
+            print()
+            print("See README_WINDOWS_TOUCHPAD.md for detailed instructions")
+            print()
             return 1
         
         # Clean up ZIP file
