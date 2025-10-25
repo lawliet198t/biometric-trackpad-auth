@@ -23,6 +23,14 @@ if IS_WINDOWS:
         import threading
         from ctypes import windll, Structure, c_long, byref, POINTER, c_int
         from ctypes.wintypes import DWORD, HANDLE, ULONG, POINT
+        
+        # Define SM_DIGITIZER constant if not available in win32con
+        if not hasattr(win32con, 'SM_DIGITIZER'):
+            SM_DIGITIZER = 94
+            SM_MAXIMUMTOUCHES = 95
+        else:
+            SM_DIGITIZER = win32con.SM_DIGITIZER
+            SM_MAXIMUMTOUCHES = win32con.SM_MAXIMUMTOUCHES
     except ImportError:
         print("⚠️  pywin32 not installed. Install with: pip install pywin32")
         IS_WINDOWS = False
@@ -81,7 +89,7 @@ class WindowsTouchpadCapture:
             
             # Verify Windows touch capability
             try:
-                touch_support = win32api.GetSystemMetrics(win32con.SM_DIGITIZER)
+                touch_support = win32api.GetSystemMetrics(SM_DIGITIZER)
                 has_touch = (touch_support & 0x40) != 0  # NID_INTEGRATED_TOUCH
                 has_multitouch = (touch_support & 0x80) != 0  # NID_MULTI_INPUT
                 
@@ -91,7 +99,7 @@ class WindowsTouchpadCapture:
                     print(f"  Digitizer flags: 0x{touch_support:02X}")
                     return False
                 
-                max_touches = win32api.GetSystemMetrics(win32con.SM_MAXIMUMTOUCHES)
+                max_touches = win32api.GetSystemMetrics(SM_MAXIMUMTOUCHES)
                 if max_touches == 0:
                     print(f"✗ No touch points available (SM_MAXIMUMTOUCHES = 0)")
                     print(f"  Precision Touchpad may not be enabled")
@@ -237,14 +245,14 @@ def detect_windows_touchpad() -> bool:
     
     try:
         # Check if touch is supported
-        touch_support = win32api.GetSystemMetrics(win32con.SM_DIGITIZER)
+        touch_support = win32api.GetSystemMetrics(SM_DIGITIZER)
         
         # Check for touch support flags
         has_touch = (touch_support & 0x40) != 0  # NID_INTEGRATED_TOUCH
         has_multitouch = (touch_support & 0x80) != 0  # NID_MULTI_INPUT
         
         if has_touch or has_multitouch:
-            max_touches = win32api.GetSystemMetrics(win32con.SM_MAXIMUMTOUCHES)
+            max_touches = win32api.GetSystemMetrics(SM_MAXIMUMTOUCHES)
             print(f"✓ Windows touch support detected (max touches: {max_touches})")
             return True
         
@@ -268,7 +276,7 @@ def list_windows_touchpads() -> List[Dict[str, str]]:
     
     try:
         if detect_windows_touchpad():
-            max_touches = win32api.GetSystemMetrics(win32con.SM_MAXIMUMTOUCHES)
+            max_touches = win32api.GetSystemMetrics(SM_MAXIMUMTOUCHES)
             devices.append({
                 'path': 'Windows Touch API',
                 'name': 'Windows Precision Touchpad',
