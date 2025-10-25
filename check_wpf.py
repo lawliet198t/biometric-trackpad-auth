@@ -39,6 +39,35 @@ for assembly_name, description in assemblies_to_check:
         print(f"✗ {assembly_name:25} ({description})")
         print(f"  Error: {str(e)[:80]}")
         failed.append((assembly_name, e))
+        
+        # For WPF assemblies, try explicit path loading
+        if assembly_name in ["PresentationFramework", "PresentationCore", "WindowsBase"]:
+            print(f"  Trying explicit path loading...")
+            
+            from pathlib import Path
+            wpf_paths = [
+                r"C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App\8.0.21",
+                r"C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App\8.0.20",
+                r"C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App\6.0.36",
+                r"C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App\5.0.17",
+            ]
+            
+            for wpf_path in wpf_paths:
+                wpf_dir = Path(wpf_path)
+                dll_path = wpf_dir / f"{assembly_name}.dll"
+                
+                if dll_path.exists():
+                    try:
+                        import System.Reflection as Reflection
+                        Reflection.Assembly.LoadFrom(str(dll_path))
+                        print(f"  ✓ Loaded from: {dll_path}")
+                        # Remove from failed list
+                        failed = [(n, e) for n, e in failed if n != assembly_name]
+                        loaded.append(assembly_name)
+                        break
+                    except Exception as e2:
+                        print(f"  ✗ Failed to load from {wpf_path}: {str(e2)[:60]}")
+                        continue
 
 print()
 print("=" * 70)

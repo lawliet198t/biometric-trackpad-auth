@@ -98,14 +98,65 @@ class WindowsTouchpadPythonNET:
             clr.AddReference("System.Core")
             
             # Add WPF assemblies (required by RawInput.Touchpad)
+            # Python.NET has trouble finding WPF in .NET 5+, so we need to load them explicitly
+            wpf_loaded = False
             try:
+                # Try standard loading first
                 clr.AddReference("PresentationFramework")
                 clr.AddReference("PresentationCore")
                 clr.AddReference("WindowsBase")
                 print("  ✓ WPF assemblies loaded")
+                wpf_loaded = True
             except Exception as e:
-                print(f"  ⚠️  WPF assemblies not available: {e}")
-                print("     Some types may not load, but core functionality should work")
+                print(f"  ⚠️  Standard WPF loading failed: {str(e)[:80]}")
+                
+                # Try loading from explicit paths
+                print("  Trying explicit WPF paths...")
+                wpf_paths = [
+                    r"C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App\8.0.21",
+                    r"C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App\8.0.20",
+                    r"C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App\6.0.36",
+                    r"C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App\5.0.17",
+                ]
+                
+                for wpf_path in wpf_paths:
+                    wpf_dir = Path(wpf_path)
+                    if wpf_dir.exists():
+                        print(f"  Found WPF at: {wpf_path}")
+                        try:
+                            # Add to sys.path
+                            if str(wpf_dir) not in sys.path:
+                                sys.path.append(str(wpf_dir))
+                            
+                            # Try to load assemblies from this path
+                            import System.Reflection as Reflection
+                            
+                            pf_dll = wpf_dir / "PresentationFramework.dll"
+                            pc_dll = wpf_dir / "PresentationCore.dll"
+                            wb_dll = wpf_dir / "WindowsBase.dll"
+                            
+                            if pf_dll.exists():
+                                Reflection.Assembly.LoadFrom(str(pf_dll))
+                                print(f"    ✓ Loaded PresentationFramework")
+                            
+                            if pc_dll.exists():
+                                Reflection.Assembly.LoadFrom(str(pc_dll))
+                                print(f"    ✓ Loaded PresentationCore")
+                            
+                            if wb_dll.exists():
+                                Reflection.Assembly.LoadFrom(str(wb_dll))
+                                print(f"    ✓ Loaded WindowsBase")
+                            
+                            wpf_loaded = True
+                            break
+                            
+                        except Exception as e2:
+                            print(f"    ✗ Failed: {str(e2)[:60]}")
+                            continue
+                
+                if not wpf_loaded:
+                    print("  ⚠️  Could not load WPF assemblies")
+                    print("     Core touchpad classes should still work")
             
             # Now add reference to the C# DLL
             dll_dir = str(Path(self.dll_path).parent.absolute())
