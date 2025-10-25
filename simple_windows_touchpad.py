@@ -77,6 +77,7 @@ class SimpleTouchpadReader:
         Returns:
             List of contacts: [{ContactId, X, Y, Timestamp}, ...]
             None if no data available
+            Empty list [] if no contacts (fingers lifted)
         """
         if not self.process or not self.running:
             return None
@@ -104,15 +105,20 @@ class SimpleTouchpadReader:
                     
                     # Update current contacts
                     self.current_contacts.clear()
-                    for contact in contacts:
-                        contact_id = contact['ContactId']
-                        self.current_contacts[contact_id] = {
-                            'X': contact['X'],
-                            'Y': contact['Y'],
-                            'Timestamp': contact['Timestamp']
-                        }
                     
-                    return contacts
+                    if len(contacts) > 0:
+                        # Active touches
+                        for contact in contacts:
+                            contact_id = contact['ContactId']
+                            self.current_contacts[contact_id] = {
+                                'X': contact['X'],
+                                'Y': contact['Y'],
+                                'Timestamp': contact['Timestamp']
+                            }
+                        return contacts
+                    else:
+                        # No touches - fingers lifted
+                        return []
                 
                 elif data.get('Type') == 'error':
                     print(f"✗ Error: {data.get('Message')}")
@@ -161,15 +167,24 @@ def main():
     print("Press Ctrl+C to exit")
     print("="*60 + "\n")
     
+    last_contact_count = 0
+    
     try:
         while True:
             contacts = reader.read_contacts()
             
-            if contacts:
-                print(f"\n[{time.strftime('%H:%M:%S')}] {len(contacts)} contact(s):")
-                for contact in contacts:
-                    print(f"  Contact {contact['ContactId']}: "
-                          f"X={contact['X']}, Y={contact['Y']}")
+            if contacts is not None:  # Got data
+                if len(contacts) > 0:
+                    # Active touches - print in real-time
+                    print(f"\r[{time.strftime('%H:%M:%S')}] {len(contacts)} finger(s): ", end="")
+                    for contact in contacts:
+                        print(f"[{contact['ContactId']}: X={contact['X']}, Y={contact['Y']}] ", end="")
+                    print("   ", end="", flush=True)
+                    last_contact_count = len(contacts)
+                elif last_contact_count > 0:
+                    # Fingers lifted
+                    print(f"\r[{time.strftime('%H:%M:%S')}] Fingers lifted" + " "*50)
+                    last_contact_count = 0
             
             time.sleep(0.016)  # ~60 FPS
     

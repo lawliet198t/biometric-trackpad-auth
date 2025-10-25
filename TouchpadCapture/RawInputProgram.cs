@@ -474,17 +474,32 @@ namespace TouchpadCapture
                     return;
                 }
                 
-                // Create WPF window
+                // Create WPF window with UI
                 var app = new Application();
                 window = new Window
                 {
-                    Title = "Raw Input Touchpad Capture",
-                    Width = 800,
-                    Height = 600,
-                    WindowState = WindowState.Normal
+                    Title = "Raw Input Touchpad Capture - Touch your touchpad!",
+                    Width = 600,
+                    Height = 400,
+                    WindowState = WindowState.Normal,
+                    WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen,
+                    Background = System.Windows.Media.Brushes.Black
                 };
                 
+                // Add text display
+                var textBlock = new System.Windows.Controls.TextBlock
+                {
+                    Text = "Waiting for touch...",
+                    Foreground = System.Windows.Media.Brushes.Lime,
+                    FontSize = 16,
+                    FontFamily = new System.Windows.Media.FontFamily("Consolas"),
+                    Margin = new Thickness(20),
+                    TextWrapping = System.Windows.TextWrapping.Wrap
+                };
+                
+                window.Content = textBlock;
                 window.SourceInitialized += OnSourceInitialized;
+                window.Tag = textBlock;  // Store reference
                 
                 OutputJson(new TouchOutput
                 {
@@ -522,27 +537,48 @@ namespace TouchpadCapture
             {
                 var contacts = TouchpadHelper.ParseInput(lParam);
                 
-                if (contacts != null && contacts.Length > 0)
+                if (contacts != null)
                 {
                     var contactList = new List<ContactData>();
                     long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     
-                    foreach (var contact in contacts)
+                    // Update UI
+                    if (window.Tag is System.Windows.Controls.TextBlock textBlock)
                     {
-                        contactList.Add(new ContactData
+                        if (contacts.Length > 0)
                         {
-                            ContactId = contact.ContactId,
-                            X = contact.X,
-                            Y = contact.Y,
-                            Timestamp = timestamp
-                        });
+                            var text = $"✓ {contacts.Length} finger(s) detected:\n\n";
+                            foreach (var contact in contacts)
+                            {
+                                text += $"Finger {contact.ContactId}:\n";
+                                text += $"  X = {contact.X}\n";
+                                text += $"  Y = {contact.Y}\n\n";
+                                
+                                contactList.Add(new ContactData
+                                {
+                                    ContactId = contact.ContactId,
+                                    X = contact.X,
+                                    Y = contact.Y,
+                                    Timestamp = timestamp
+                                });
+                            }
+                            textBlock.Text = text;
+                        }
+                        else
+                        {
+                            textBlock.Text = "Waiting for touch...";
+                        }
                     }
                     
-                    OutputJson(new TouchOutput
+                    // Output JSON (only if there are contacts)
+                    if (contactList.Count > 0)
                     {
-                        Type = "contacts",
-                        Contacts = contactList
-                    });
+                        OutputJson(new TouchOutput
+                        {
+                            Type = "contacts",
+                            Contacts = contactList
+                        });
+                    }
                 }
             }
             return IntPtr.Zero;
