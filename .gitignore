@@ -35,11 +35,20 @@ ENV/
 
 # Project specific
 baseline.pkl
+windows_baseline.pkl
 *.pkl
-*.json
 gestures/
 exports/
 training_data/
+
+# Build artifacts
+TouchpadCapture.exe
+TouchpadCapture.dll
+*.dll
+*.pdb
+runtimes/
+TouchpadCapture/bin/
+TouchpadCapture/obj/
 
 # OS
 .DS_Store

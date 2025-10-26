@@ -10,7 +10,7 @@ If you find a bug, please create an issue with:
 - Clear description of the problem
 - Steps to reproduce
 - Expected vs actual behavior
-- Your environment (Linux distro, Python version, trackpad model)
+- Your environment (Windows version, Python version, .NET version, touchpad model)
 - Error messages or logs
 
 ### Suggesting Enhancements
@@ -79,20 +79,25 @@ Enhancement suggestions are welcome! Please create an issue with:
 
 We especially welcome contributions in these areas:
 
-1. **Windows Support**
-   - Alternative to evdev for Windows
-   - Windows input device handling
+1. **Cross-Platform Support**
+   - Linux support (evdev-based)
+   - macOS support
+   - Testing on different touchpad models
 
-2. **macOS Support**
-   - Testing and fixes for macOS
-
-3. **Stage 2 Verification**
+2. **Advanced Biometric Features**
    - CNN-based shape verification
    - Deep learning model integration
+   - Additional feature extraction methods
 
-4. **Performance Optimization**
+3. **Performance Optimization**
    - Faster feature extraction
    - Real-time processing improvements
+   - Lower latency touchpad reading
+
+4. **Security Enhancements**
+   - Anti-spoofing measures
+   - Encrypted baseline storage
+   - Multi-factor integration
 
 5. **Documentation**
    - Tutorials and guides
@@ -102,7 +107,7 @@ We especially welcome contributions in these areas:
 6. **Testing**
    - Unit tests
    - Integration tests
-   - Different trackpad models
+   - Different touchpad models and Windows versions
 
 ## Questions?
 
