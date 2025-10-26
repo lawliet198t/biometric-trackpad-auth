@@ -22,15 +22,17 @@ class SimpleTouchpadReader:
     """
     Minimal touchpad reader - just gets raw X, Y, ContactId values
     Uses threading to avoid blocking
+    Uses timeout to detect finger lifts (since Windows doesn't send explicit lift events)
     """
     
-    def __init__(self, exe_path: str = "TouchpadCapture.exe"):
+    def __init__(self, exe_path: str = "TouchpadCapture.exe", lift_timeout: float = 0.1):
         self.exe_path = self._find_exe(exe_path)
         self.process = None
         self.running = False
         
-        # Raw contact data
-        self.current_contacts: Dict[int, Dict] = {}  # {contact_id: {X, Y, timestamp}}
+        # Raw contact data with timestamps
+        self.current_contacts: Dict[int, Dict] = {}  # {contact_id: {X, Y, timestamp, last_seen}}
+        self.lift_timeout = lift_timeout  # 100ms default
         
         # Threading for non-blocking reads
         self.data_queue = queue.Queue(maxsize=100)
@@ -106,15 +108,17 @@ class SimpleTouchpadReader:
     
     def read_contacts(self) -> Optional[List[Dict]]:
         """
-        Read current contact data (non-blocking)
+        Read current contact data (non-blocking) with timeout-based lift detection
         
         Returns:
             List of contacts: [{ContactId, X, Y, Timestamp}, ...]
             None if no data available
-            Empty list [] if no contacts (fingers lifted)
+            Empty list [] if no contacts (fingers lifted via timeout)
         """
         if not self.running:
             return None
+        
+        current_time = time.time()
         
         try:
             # Try to get data from queue (non-blocking)
@@ -131,22 +135,41 @@ class SimpleTouchpadReader:
                 elif data.get('Type') == 'contacts':
                     contacts = data.get('Contacts', [])
                     
-                    # Update current contacts
-                    self.current_contacts.clear()
+                    # Update last_seen for contacts in this frame
+                    seen_ids = set()
+                    for contact in contacts:
+                        contact_id = contact['ContactId']
+                        seen_ids.add(contact_id)
+                        
+                        self.current_contacts[contact_id] = {
+                            'ContactId': contact_id,
+                            'X': contact['X'],
+                            'Y': contact['Y'],
+                            'Timestamp': contact['Timestamp'],
+                            'last_seen': current_time
+                        }
                     
-                    if len(contacts) > 0:
-                        # Active touches
-                        for contact in contacts:
-                            contact_id = contact['ContactId']
-                            self.current_contacts[contact_id] = {
-                                'X': contact['X'],
-                                'Y': contact['Y'],
-                                'Timestamp': contact['Timestamp']
-                            }
+                    # Remove contacts not seen recently (timeout-based lift detection)
+                    lifted_ids = []
+                    for contact_id, contact_data in list(self.current_contacts.items()):
+                        if current_time - contact_data['last_seen'] > self.lift_timeout:
+                            lifted_ids.append(contact_id)
                     
-                    # Always return the contacts (even if empty)
-                    # Empty array means all fingers lifted
-                    return contacts
+                    for contact_id in lifted_ids:
+                        del self.current_contacts[contact_id]
+                    
+                    # Return active contacts
+                    active_list = [
+                        {
+                            'ContactId': c['ContactId'],
+                            'X': c['X'],
+                            'Y': c['Y'],
+                            'Timestamp': c['Timestamp']
+                        }
+                        for c in self.current_contacts.values()
+                    ]
+                    
+                    return active_list if len(active_list) > 0 else []
                 
                 elif data.get('Type') == 'error':
                     print(f"✗ Error: {data.get('Message')}")
@@ -158,7 +181,28 @@ class SimpleTouchpadReader:
                 return None
         
         except queue.Empty:
-            # No data available right now
+            # No new data, but check for timeouts
+            lifted_ids = []
+            for contact_id, contact_data in list(self.current_contacts.items()):
+                if current_time - contact_data['last_seen'] > self.lift_timeout:
+                    lifted_ids.append(contact_id)
+            
+            if lifted_ids:
+                for contact_id in lifted_ids:
+                    del self.current_contacts[contact_id]
+                
+                # Return current active contacts (after removing lifted ones)
+                active_list = [
+                    {
+                        'ContactId': c['ContactId'],
+                        'X': c['X'],
+                        'Y': c['Y'],
+                        'Timestamp': c['Timestamp']
+                    }
+                    for c in self.current_contacts.values()
+                ]
+                return active_list if len(active_list) > 0 else []
+            
             return None
         except Exception as e:
             print(f"Read error: {e}")
