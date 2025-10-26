@@ -134,8 +134,8 @@ async def main():
     parser.add_argument('--samples', type=int, default=10, help='Training samples')
     args = parser.parse_args()
     
-    # Create instances (headless=True means no C# window on Windows!)
-    capture = TrackpadCapture(device_path=args.device, headless=True)
+    # Create instances
+    capture = TrackpadCapture(device_path=args.device)
     visualizer = GestureVisualizer(
         width=1200,
         height=800,

@@ -322,7 +322,7 @@ class TrackpadCapture:
     - Windows: Windows Touch API
     """
     
-    def __init__(self, device_path: Optional[str] = None, headless: bool = True):
+    def __init__(self, device_path: Optional[str] = None):
         # Platform detection
         self.platform = platform.system()
         self.is_windows = IS_WINDOWS and WINDOWS_AVAILABLE
@@ -330,10 +330,9 @@ class TrackpadCapture:
         
         # Windows backend
         if self.is_windows:
-            self.backend = SimpleTouchpadReader(lift_timeout=0.015, headless=headless)  # 15ms for maximum performance
+            self.backend = SimpleTouchpadReader(lift_timeout=0.015)  # 15ms for maximum performance
             self.device_path = "Windows Touch API"
-            mode_str = " (headless)" if headless else ""
-            print(f"🔍 Using Simple Windows Touchpad (optimized){mode_str}")
+            print(f"🔍 Using Simple Windows Touchpad (optimized)")
         
         # Linux backend
         elif self.is_linux:
