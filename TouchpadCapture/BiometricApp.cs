@@ -28,7 +28,7 @@ namespace TouchpadCapture
         
         // Visualization
         private Dictionary<int, List<Point>> contactTrails = new Dictionary<int, List<Point>>();
-        private Dictionary<int, Ellipse> contactCircles = new Dictionary<int, Ellipse>>();
+        private Dictionary<int, Ellipse> contactCircles = new Dictionary<int, Ellipse>();
         private int maxTrailPoints = 100;
         
         // Colors for different contacts
