@@ -39,19 +39,23 @@ class SimpleTouchpadReader:
     def _find_exe(self, exe_name: str) -> str:
         """Find the TouchpadCapture executable"""
         possible_paths = [
-            exe_name,
-            f"TouchpadCapture/bin/Release/net5.0-windows/{exe_name}",
+            f"TouchpadCapture/bin/{exe_name}",  # Build output (BEST - has all DLLs)
+            exe_name,  # Root directory
+            f"TouchpadCapture/bin/Release/net8.0-windows/{exe_name}",
             f"bin/{exe_name}",
             Path(__file__).parent / exe_name,
         ]
         
         for path in possible_paths:
             if Path(path).exists():
-                return str(Path(path).absolute())
+                found_path = str(Path(path).absolute())
+                print(f"Using: {found_path}")
+                return found_path
         
         raise FileNotFoundError(
             f"{exe_name} not found!\n"
-            "Build it with: build_touchpad.bat"
+            "Build it with: build_rawinput.bat\n"
+            f"Searched: {possible_paths}"
         )
     
     def _reader_thread_func(self):
