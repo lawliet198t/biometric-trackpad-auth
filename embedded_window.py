@@ -75,6 +75,36 @@ class EmbeddedTouchpadWindow:
         self.clock = pygame.time.Clock()
         self.fps = 0
     
+    def _list_all_windows(self):
+        """List all visible windows (for debugging)"""
+        EnumWindows = user32.EnumWindows
+        EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int))
+        GetWindowText = user32.GetWindowTextW
+        GetWindowTextLength = user32.GetWindowTextLengthW
+        IsWindowVisible = user32.IsWindowVisible
+        
+        windows = []
+        
+        def foreach_window(hwnd, lParam):
+            if IsWindowVisible(hwnd):
+                length = GetWindowTextLength(hwnd)
+                if length > 0:
+                    buff = ctypes.create_unicode_buffer(length + 1)
+                    GetWindowText(hwnd, buff, length + 1)
+                    title = buff.value
+                    if title and "touchpad" in title.lower():
+                        windows.append((hwnd, title))
+            return True
+        
+        EnumWindows(EnumWindowsProc(foreach_window), 0)
+        
+        if windows:
+            print("\nFound windows with 'touchpad' in title:")
+            for hwnd, title in windows:
+                print(f"  HWND: {hwnd} - Title: '{title}'")
+        else:
+            print("\nNo windows found with 'touchpad' in title")
+    
     def start_reader(self):
         """Start the touchpad reader and embed its window"""
         print("\nStarting touchpad reader...")
@@ -90,21 +120,30 @@ class EmbeddedTouchpadWindow:
         
         # Wait for C# window to be created
         print("Waiting for C# window...")
-        time.sleep(1.5)
+        time.sleep(2.0)
         
-        # Find the C# window by title
-        window_title = "Touchpad Capture & Visualization"
-        self.csharp_hwnd = FindWindow(None, window_title)
+        # Try multiple possible window titles
+        possible_titles = [
+            "Touchpad Capture (Keep this window open)",
+            "Touchpad Capture & Visualization",
+            "Touchpad Capture",
+            "Touchpad Capture (Headless)",
+        ]
+        
+        print("Searching for C# window...")
+        for title in possible_titles:
+            print(f"  Trying: '{title}'")
+            self.csharp_hwnd = FindWindow(None, title)
+            if self.csharp_hwnd:
+                print(f"  ✓ Found with title: '{title}'")
+                break
         
         if not self.csharp_hwnd:
-            print(f"✗ Could not find C# window with title: {window_title}")
-            print("  Trying alternative title...")
-            window_title = "Touchpad Capture"
-            self.csharp_hwnd = FindWindow(None, window_title)
-        
-        if not self.csharp_hwnd:
-            print("✗ Could not find C# window")
-            print("  The C# window may have a different title")
+            print("\n✗ Could not find C# window with any known title")
+            print("\nTrying to enumerate all windows...")
+            self._list_all_windows()
+            print("\nPlease check if the C# window appeared separately.")
+            print("If yes, note its exact title and update embedded_window.py")
             return False
         
         print(f"✓ Found C# window handle: {self.csharp_hwnd}")
