@@ -330,7 +330,7 @@ class TrackpadCapture:
         
         # Windows backend
         if self.is_windows:
-            self.backend = SimpleTouchpadReader(lift_timeout=0.05)  # 50ms for low latency
+            self.backend = SimpleTouchpadReader(lift_timeout=0.02)  # 20ms for ultra-low latency
             self.device_path = "Windows Touch API"
             print(f"🔍 Using Simple Windows Touchpad (optimized)")
         
@@ -522,7 +522,7 @@ class TrackpadCapture:
                     
                     previous_contacts = current_contacts
                 
-                await asyncio.sleep(0.005)  # 200 FPS polling for low latency
+                await asyncio.sleep(0.002)  # 500 FPS polling for ultra-low latency
         
         except Exception as e:
             print(f"Windows event processing error: {e}")
@@ -718,7 +718,7 @@ class GestureVisualizer:
             self.draw_gesture_track(track, True)
         
         pygame.display.flip()
-        self.clock.tick(60)
+        self.clock.tick(120)  # 120 FPS for smoother visualization
 
 async def run_capture_loop(capture: TrackpadCapture, 
                            visualizer: GestureVisualizer,

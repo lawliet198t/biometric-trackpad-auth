@@ -590,7 +590,7 @@ namespace TouchpadCapture
         private static DateTime lastUiUpdate = DateTime.MinValue;
         private static DateTime lastJsonOutput = DateTime.MinValue;
         private static readonly TimeSpan uiUpdateInterval = TimeSpan.FromMilliseconds(100);
-        private static readonly TimeSpan jsonOutputInterval = TimeSpan.FromMilliseconds(8); // 125 FPS for low latency
+        private static readonly TimeSpan jsonOutputInterval = TimeSpan.FromMilliseconds(5); // 200 FPS for ultra-low latency
         private static HashSet<int> lastSeenContactIds = new HashSet<int>();
         
         private static IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
