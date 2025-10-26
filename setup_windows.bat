@@ -127,13 +127,9 @@ echo Next steps:
 echo.
 echo   1. Train your biometric baseline:
 echo      venv\Scripts\activate.bat
-echo      python windows_biometric_trainer.py
+echo      python realtime_trainer.py
 echo.
-echo   2. Test touchpad input:
-echo      venv\Scripts\activate.bat
-echo      python simple_windows_touchpad.py
-echo.
-echo   3. Run biometric verification:
+echo   2. Run biometric verification:
 echo      venv\Scripts\activate.bat
 echo      python realtime_verify.py
 echo.
