@@ -78,7 +78,9 @@ print("="*70)
 if new_windows:
     print(f"\n✓ Found {len(new_windows)} new window(s):\n")
     for hwnd, title in new_windows:
-        print(f"  HWND: {hwnd}")
+        # Convert hwnd to int if it's a pointer
+        hwnd_int = hwnd if isinstance(hwnd, int) else int(hwnd)
+        print(f"  HWND: {hwnd_int}")
         print(f"  Title: '{title}'")
         print()
         
