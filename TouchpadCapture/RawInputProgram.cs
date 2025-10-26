@@ -539,11 +539,8 @@ namespace TouchpadCapture
                 window.SourceInitialized += OnSourceInitialized;
                 window.Tag = textBlock;  // Store reference
                 
-                // Start heartbeat timer to send updates even when not touching
-                heartbeatTimer = new System.Windows.Threading.DispatcherTimer();
-                heartbeatTimer.Interval = heartbeatInterval;
-                heartbeatTimer.Tick += HeartbeatTick;
-                heartbeatTimer.Start();
+                // Don't use heartbeat - it causes gaps
+                // Instead, we'll track contact IDs and detect when they disappear
                 
                 OutputJson(new TouchOutput
                 {
@@ -575,42 +572,14 @@ namespace TouchpadCapture
             }
         }
         
-        private static void HeartbeatTick(object sender, EventArgs e)
-        {
-            // Send periodic updates even when not touching
-            // This allows Python to detect when all fingers are lifted
-            var now = DateTime.UtcNow;
-            
-            if (now - lastJsonOutput > jsonOutputInterval)
-            {
-                // Send empty contact list if nothing is touching
-                OutputJson(new TouchOutput
-                {
-                    Type = "contacts",
-                    Contacts = new List<ContactData>()
-                });
-                lastJsonOutput = now;
-                
-                // Update UI
-                if (now - lastUiUpdate > uiUpdateInterval)
-                {
-                    if (window.Tag is System.Windows.Controls.TextBlock textBlock)
-                    {
-                        textBlock.Text = "Waiting for touch...";
-                    }
-                    lastUiUpdate = now;
-                }
-            }
-        }
+        // Removed heartbeat - causes gaps in continuous gestures
+        // Python will track contact IDs and detect lifts
         
         private static DateTime lastUiUpdate = DateTime.MinValue;
         private static DateTime lastJsonOutput = DateTime.MinValue;
-        private static DateTime lastHeartbeat = DateTime.MinValue;
         private static readonly TimeSpan uiUpdateInterval = TimeSpan.FromMilliseconds(100);
         private static readonly TimeSpan jsonOutputInterval = TimeSpan.FromMilliseconds(16);
-        private static readonly TimeSpan heartbeatInterval = TimeSpan.FromMilliseconds(50); // Send empty updates
-        private static int lastContactCount = 0;
-        private static System.Windows.Threading.DispatcherTimer heartbeatTimer;
+        private static HashSet<int> lastSeenContactIds = new HashSet<int>();
         
         private static IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
@@ -658,16 +627,20 @@ namespace TouchpadCapture
                         lastUiUpdate = now;
                     }
                     
-                    // Output JSON (throttled to 60 FPS) - only if there are contacts
-                    if (contacts.Length > 0 && now - lastJsonOutput > jsonOutputInterval)
+                    // Track current contact IDs
+                    var currentContactIds = new HashSet<int>(contactList.Select(c => c.ContactId));
+                    
+                    // Output JSON (throttled to 60 FPS)
+                    if (now - lastJsonOutput > jsonOutputInterval)
                     {
+                        // Always output - even if empty (for lift detection)
                         OutputJson(new TouchOutput
                         {
                             Type = "contacts",
                             Contacts = contactList
                         });
                         lastJsonOutput = now;
-                        lastContactCount = contacts.Length;
+                        lastSeenContactIds = currentContactIds;
                     }
                 }
             }
