@@ -5,6 +5,9 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Shapes;
+using System.Windows.Controls;
 
 namespace TouchpadCapture
 {
@@ -490,141 +493,133 @@ namespace TouchpadCapture
     {
         private static Window window;
         
+        // Visualization state
+        private static Canvas visualizationCanvas;
+        private static Dictionary<int, List<Point>> contactTrails = new Dictionary<int, List<Point>>();
+        private static Dictionary<int, Ellipse> contactCircles = new Dictionary<int, Ellipse>();
+        private static TextBlock statusText;
+        private static int maxTrailPoints = 100;
+        
+        // Colors for different contacts
+        private static Brush[] contactColors = new Brush[]
+        {
+            new SolidColorBrush(Color.FromRgb(255, 100, 100)),  // Red
+            new SolidColorBrush(Color.FromRgb(100, 255, 100)),  // Green
+            new SolidColorBrush(Color.FromRgb(100, 100, 255)),  // Blue
+            new SolidColorBrush(Color.FromRgb(255, 255, 100)),  // Yellow
+            new SolidColorBrush(Color.FromRgb(255, 100, 255)),  // Magenta
+        };
+        
         [STAThread]
         static void Main(string[] args)
         {
             try
             {
-                // Check for --headless flag
-                bool headless = args.Length > 0 && args[0] == "--headless";
-                
-                // Debug: Output to stderr so we can see it
-                if (headless)
-                {
-                    Console.Error.WriteLine("[DEBUG] Headless mode ENABLED");
-                }
-                else
-                {
-                    Console.Error.WriteLine("[DEBUG] Headless mode DISABLED");
-                }
-                
                 // Check if touchpad exists
                 if (!TouchpadHelper.Exists())
                 {
-                    OutputJson(new TouchOutput
-                    {
-                        Type = "error",
-                        Message = "No Precision Touchpad detected"
-                    });
+                    MessageBox.Show("No Precision Touchpad detected!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
                 
-                // Create WPF window (hidden if headless)
+                // Create WPF application
                 var app = new Application();
+                
+                // Create main window with visualization
                 window = new Window
                 {
-                    Title = "Touchpad Capture" + (headless ? " (Headless)" : " (Keep this window open)"),
-                    WindowStartupLocation = System.Windows.WindowStartupLocation.Manual,
-                    Background = System.Windows.Media.Brushes.Black,
-                    ShowActivated = false,  // Never activate
-                    ResizeMode = System.Windows.ResizeMode.NoResize
+                    Title = "Touchpad Capture & Visualization",
+                    Width = 1200,
+                    Height = 800,
+                    WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                    Background = new SolidColorBrush(Color.FromRgb(20, 20, 30)),
+                    ResizeMode = ResizeMode.CanResize
                 };
                 
-                if (headless)
-                {
-                    // Headless mode - completely hidden
-                    window.Width = 0;
-                    window.Height = 0;
-                    window.Left = -32000;  // Far off-screen
-                    window.Top = -32000;
-                    window.WindowStyle = System.Windows.WindowStyle.None;
-                    window.WindowState = WindowState.Minimized;
-                    window.Topmost = false;
-                    window.ShowInTaskbar = false;
-                    window.Visibility = System.Windows.Visibility.Collapsed;  // Use Collapsed instead of Hidden
-                    window.Opacity = 0;  // Make it transparent
-                }
-                else
-                {
-                    // Normal mode - visible window
-                    window.Width = 400;
-                    window.Height = 300;
-                    window.Left = System.Windows.SystemParameters.PrimaryScreenWidth - window.Width - 20;
-                    window.Top = 20;
-                    window.WindowStyle = System.Windows.WindowStyle.SingleBorderWindow;
-                    window.WindowState = WindowState.Normal;
-                    window.Topmost = true;
-                    window.ShowInTaskbar = true;
-                    window.Visibility = System.Windows.Visibility.Visible;
-                    
-                    // Add text display
-                    var textBlock = new System.Windows.Controls.TextBlock
-                    {
-                        Text = "Waiting for touch...",
-                        Foreground = System.Windows.Media.Brushes.Lime,
-                        FontSize = 16,
-                        FontFamily = new System.Windows.Media.FontFamily("Consolas"),
-                        Margin = new Thickness(20),
-                        TextWrapping = System.Windows.TextWrapping.Wrap
-                    };
-                    
-                    window.Content = textBlock;
-                    window.Tag = textBlock;  // Store reference
-                    
-                    // UI update timer (doesn't send JSON, just updates window)
-                    var uiTimer = new System.Windows.Threading.DispatcherTimer();
-                    uiTimer.Interval = TimeSpan.FromMilliseconds(200);
-                    uiTimer.Tick += (s, e) => {
-                        if (window.Tag is System.Windows.Controls.TextBlock textBlock)
-                        {
-                            var now = DateTime.UtcNow;
-                            if (now - lastJsonOutput > TimeSpan.FromMilliseconds(200))
-                            {
-                                textBlock.Text = "Waiting for touch...";
-                            }
-                        }
-                    };
-                    uiTimer.Start();
-                }
+                // Create main grid layout
+                var mainGrid = new Grid();
+                mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                mainGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(300) });
                 
+                // Left side: Visualization canvas
+                visualizationCanvas = new Canvas
+                {
+                    Background = new SolidColorBrush(Color.FromRgb(30, 30, 40)),
+                    Margin = new Thickness(10)
+                };
+                Grid.SetColumn(visualizationCanvas, 0);
+                mainGrid.Children.Add(visualizationCanvas);
+                
+                // Right side: Info panel
+                var infoPanel = new StackPanel
+                {
+                    Background = new SolidColorBrush(Color.FromRgb(25, 25, 35)),
+                    Margin = new Thickness(10)
+                };
+                Grid.SetColumn(infoPanel, 1);
+                mainGrid.Children.Add(infoPanel);
+                
+                // Title
+                var titleText = new TextBlock
+                {
+                    Text = "Touchpad Capture",
+                    FontSize = 32,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(0, 255, 100)),
+                    Margin = new Thickness(20, 20, 20, 10),
+                    TextAlignment = TextAlignment.Center
+                };
+                infoPanel.Children.Add(titleText);
+                
+                // Status
+                statusText = new TextBlock
+                {
+                    Text = "Waiting for touch...",
+                    FontSize = 20,
+                    Foreground = Brushes.White,
+                    Margin = new Thickness(20, 10, 20, 20),
+                    TextAlignment = TextAlignment.Center,
+                    TextWrapping = TextWrapping.Wrap
+                };
+                infoPanel.Children.Add(statusText);
+                
+                // Separator
+                infoPanel.Children.Add(new Separator { Margin = new Thickness(10, 10, 10, 10) });
+                
+                // Instructions
+                var instructionsText = new TextBlock
+                {
+                    Text = "Touch your touchpad to see real-time visualization!\n\n" +
+                           "• Each finger gets a unique color\n" +
+                           "• Trails show movement history\n" +
+                           "• Data is also output as JSON",
+                    FontSize = 14,
+                    Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150)),
+                    Margin = new Thickness(20),
+                    TextWrapping = TextWrapping.Wrap
+                };
+                infoPanel.Children.Add(instructionsText);
+                
+                window.Content = mainGrid;
                 window.SourceInitialized += OnSourceInitialized;
                 
-                // In headless mode, ensure window never shows
-                if (headless)
-                {
-                    // Hook into the window's state changed event to keep it hidden
-                    window.StateChanged += (s, e) => {
-                        if (window.WindowState != WindowState.Minimized)
-                        {
-                            window.WindowState = WindowState.Minimized;
-                        }
-                        window.Hide();
-                    };
-                    
-                    // Hook into visibility changed to keep it hidden
-                    window.IsVisibleChanged += (s, e) => {
-                        if (window.IsVisible)
-                        {
-                            window.Hide();
-                        }
-                    };
-                }
+                // Start visualization update timer
+                var vizTimer = new System.Windows.Threading.DispatcherTimer();
+                vizTimer.Interval = TimeSpan.FromMilliseconds(16);  // ~60 FPS
+                vizTimer.Tick += UpdateVisualization;
+                vizTimer.Start();
                 
                 OutputJson(new TouchOutput
                 {
                     Type = "ready",
-                    Message = "Raw Input touchpad capture ready" + (headless ? " (headless mode)" : " - Touch your touchpad!")
+                    Message = "Touchpad capture ready with visualization!"
                 });
                 
                 app.Run(window);
             }
             catch (Exception ex)
             {
-                OutputJson(new TouchOutput
-                {
-                    Type = "error",
-                    Message = $"Error: {ex.Message}"
-                });
+                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 Environment.Exit(1);
             }
         }
@@ -640,14 +635,131 @@ namespace TouchpadCapture
             }
         }
         
+        private static Point MapToCanvas(int x, int y)
+        {
+            // Normalize coordinates
+            double normX = touchpadMaxX > touchpadMinX ? 
+                (double)(x - touchpadMinX) / (touchpadMaxX - touchpadMinX) : 0.5;
+            double normY = touchpadMaxY > touchpadMinY ? 
+                (double)(y - touchpadMinY) / (touchpadMaxY - touchpadMinY) : 0.5;
+            
+            // Map to canvas with margins
+            double canvasX = 20 + normX * (visualizationCanvas.ActualWidth - 40);
+            double canvasY = 20 + normY * (visualizationCanvas.ActualHeight - 40);
+            
+            return new Point(canvasX, canvasY);
+        }
+        
+        private static void UpdateVisualization(object sender, EventArgs e)
+        {
+            if (visualizationCanvas == null || currentContacts == null)
+                return;
+            
+            // Update status
+            if (currentContacts.Length > 0)
+            {
+                statusText.Text = $"{currentContacts.Length} finger(s) detected";
+                statusText.Foreground = new SolidColorBrush(Color.FromRgb(0, 255, 100));
+            }
+            else
+            {
+                statusText.Text = "Waiting for touch...";
+                statusText.Foreground = Brushes.White;
+            }
+            
+            // Clear old circles
+            foreach (var circle in contactCircles.Values)
+            {
+                visualizationCanvas.Children.Remove(circle);
+            }
+            contactCircles.Clear();
+            
+            // Draw current contacts
+            foreach (var contact in currentContacts)
+            {
+                var pos = MapToCanvas(contact.X, contact.Y);
+                var color = contactColors[contact.ContactId % contactColors.Length];
+                
+                // Add to trail
+                if (!contactTrails.ContainsKey(contact.ContactId))
+                {
+                    contactTrails[contact.ContactId] = new List<Point>();
+                }
+                contactTrails[contact.ContactId].Add(pos);
+                
+                // Limit trail length
+                if (contactTrails[contact.ContactId].Count > maxTrailPoints)
+                {
+                    contactTrails[contact.ContactId].RemoveAt(0);
+                }
+                
+                // Draw trail
+                var trail = contactTrails[contact.ContactId];
+                for (int i = 1; i < trail.Count; i++)
+                {
+                    var line = new Line
+                    {
+                        X1 = trail[i - 1].X,
+                        Y1 = trail[i - 1].Y,
+                        X2 = trail[i].X,
+                        Y2 = trail[i].Y,
+                        Stroke = color,
+                        StrokeThickness = 3 + (i / (double)trail.Count) * 5,
+                        Opacity = 0.3 + (i / (double)trail.Count) * 0.7
+                    };
+                    visualizationCanvas.Children.Add(line);
+                }
+                
+                // Draw current position circle
+                var circle = new Ellipse
+                {
+                    Width = 40,
+                    Height = 40,
+                    Fill = color,
+                    Stroke = Brushes.White,
+                    StrokeThickness = 3
+                };
+                Canvas.SetLeft(circle, pos.X - 20);
+                Canvas.SetTop(circle, pos.Y - 20);
+                visualizationCanvas.Children.Add(circle);
+                contactCircles[contact.ContactId] = circle;
+                
+                // Draw contact ID
+                var idText = new TextBlock
+                {
+                    Text = contact.ContactId.ToString(),
+                    FontSize = 18,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = Brushes.White,
+                    TextAlignment = TextAlignment.Center
+                };
+                Canvas.SetLeft(idText, pos.X - 10);
+                Canvas.SetTop(idText, pos.Y - 10);
+                visualizationCanvas.Children.Add(idText);
+            }
+            
+            // Remove old trails for contacts no longer active
+            var activeIds = new HashSet<int>(currentContacts.Select(c => c.ContactId));
+            var toRemove = contactTrails.Keys.Where(id => !activeIds.Contains(id)).ToList();
+            foreach (var id in toRemove)
+            {
+                contactTrails.Remove(id);
+            }
+        }
+        
         // Removed heartbeat - causes gaps in continuous gestures
         // Python will track contact IDs and detect lifts
         
-        private static DateTime lastUiUpdate = DateTime.MinValue;
         private static DateTime lastJsonOutput = DateTime.MinValue;
-        private static readonly TimeSpan uiUpdateInterval = TimeSpan.FromMilliseconds(100);
-        private static readonly TimeSpan jsonOutputInterval = TimeSpan.FromMilliseconds(0); // No throttling - output immediately!
+        private static readonly TimeSpan jsonOutputInterval = TimeSpan.FromMilliseconds(16); // ~60 FPS
         private static HashSet<int> lastSeenContactIds = new HashSet<int>();
+        private static TouchpadContact[] currentContacts = new TouchpadContact[0];
+        
+        // Touchpad bounds (auto-detected)
+        private static int touchpadMinX = int.MaxValue;
+        private static int touchpadMaxX = int.MinValue;
+        private static int touchpadMinY = int.MaxValue;
+        private static int touchpadMaxY = int.MinValue;
         
         private static IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
@@ -661,9 +773,17 @@ namespace TouchpadCapture
                     var contactList = new List<ContactData>();
                     long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     
-                    // Build contact list
+                    // Store contacts for visualization
+                    currentContacts = contacts;
+                    
+                    // Update touchpad bounds
                     foreach (var contact in contacts)
                     {
+                        touchpadMinX = Math.Min(touchpadMinX, contact.X);
+                        touchpadMaxX = Math.Max(touchpadMaxX, contact.X);
+                        touchpadMinY = Math.Min(touchpadMinY, contact.Y);
+                        touchpadMaxY = Math.Max(touchpadMaxY, contact.Y);
+                        
                         contactList.Add(new ContactData
                         {
                             ContactId = contact.ContactId,
@@ -671,25 +791,6 @@ namespace TouchpadCapture
                             Y = contact.Y,
                             Timestamp = timestamp
                         });
-                    }
-                    
-                    // Update UI (throttled to 10 FPS) - only if window has UI
-                    if (now - lastUiUpdate > uiUpdateInterval && window.Tag is System.Windows.Controls.TextBlock textBlock)
-                    {
-                        if (contacts.Length > 0)
-                        {
-                            var text = $"✓ {contacts.Length} finger(s)\n\n";
-                            foreach (var contact in contacts)
-                            {
-                                text += $"#{contact.ContactId}: X={contact.X} Y={contact.Y}\n";
-                            }
-                            textBlock.Text = text;
-                        }
-                        else
-                        {
-                            textBlock.Text = "Waiting for touch...";
-                        }
-                        lastUiUpdate = now;
                     }
                     
                     // Track current contact IDs

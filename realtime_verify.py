@@ -157,8 +157,8 @@ async def main():
     parser.add_argument('--verbose', action='store_true', help='Enable verbose realtime logging (throttled to 1/sec)')
     args = parser.parse_args()
     
-    # Create instances (headless=True means no C# window on Windows!)
-    capture = TrackpadCapture(device_path=args.device, headless=True)
+    # Create instances (C# window now has its own visualization!)
+    capture = TrackpadCapture(device_path=args.device, headless=False)
     visualizer = GestureVisualizer(
         width=1400,
         height=900,
