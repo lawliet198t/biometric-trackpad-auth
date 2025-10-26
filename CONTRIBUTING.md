@@ -71,43 +71,56 @@ Enhancement suggestions are welcome! Please create an issue with:
 
 ### Testing
 
-- Test on actual hardware (trackpad)
+- Test on actual hardware (Windows Precision Touchpad)
 - Verify both training and verification modes
-- Check edge cases (very fast/slow gestures, etc.)
+- Check edge cases (very fast/slow gestures, multi-finger, etc.)
+- Test on different Windows versions (10, 11)
+- Verify pygame visualization works correctly
 
 ## Priority Areas for Contribution
 
 We especially welcome contributions in these areas:
 
 1. **Cross-Platform Support**
-   - Linux support (evdev-based)
-   - macOS support
-   - Testing on different touchpad models
+   - Linux support (evdev-based implementation)
+   - macOS support (trackpad API integration)
+   - Testing on different Windows touchpad models
 
 2. **Advanced Biometric Features**
-   - CNN-based shape verification
+   - CNN-based shape verification (Stage 2)
    - Deep learning model integration
    - Additional feature extraction methods
+   - Adaptive baseline updates
 
 3. **Performance Optimization**
-   - Faster feature extraction
+   - Faster feature extraction algorithms
    - Real-time processing improvements
    - Lower latency touchpad reading
+   - GPU acceleration for verification
 
 4. **Security Enhancements**
    - Anti-spoofing measures
    - Encrypted baseline storage
    - Multi-factor integration
+   - Secure key derivation from biometric data
 
-5. **Documentation**
-   - Tutorials and guides
-   - Video demonstrations
+5. **User Experience**
+   - GUI application for training/verification
+   - Better visual feedback during capture
+   - Gesture quality indicators
+   - Tutorial mode for new users
+
+6. **Documentation**
+   - Video tutorials and demonstrations
    - Translation to other languages
+   - API documentation
+   - Integration examples
 
-6. **Testing**
-   - Unit tests
+7. **Testing**
+   - Unit tests for core components
    - Integration tests
-   - Different touchpad models and Windows versions
+   - Testing on different touchpad models
+   - Cross-platform compatibility tests
 
 ## Questions?
 

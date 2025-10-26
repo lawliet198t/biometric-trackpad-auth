@@ -13,7 +13,6 @@ This automatically:
 2. Creates Python virtual environment
 3. Installs dependencies
 4. Builds TouchpadCapture.exe
-5. Runs a test
 
 ## Manual Installation
 
@@ -48,8 +47,10 @@ cd ..
 ### 4. Test
 
 ```bash
-python test_simple.py
+python simple_windows_touchpad.py
 ```
+
+Touch your touchpad to see if raw data is being captured.
 
 ## Troubleshooting
 
@@ -91,13 +92,17 @@ After installation:
 1. **Train your baseline:**
    ```bash
    venv\Scripts\activate.bat
-   python windows_biometric_trainer.py
+   python realtime_trainer.py
    ```
 
 2. **Test authentication:**
-   The trainer automatically enters verification mode after training.
+   ```bash
+   venv\Scripts\activate.bat
+   python realtime_verify.py --baseline baseline.pkl
+   ```
 
 3. **View raw data (optional):**
    ```bash
+   venv\Scripts\activate.bat
    python simple_windows_touchpad.py
    ```

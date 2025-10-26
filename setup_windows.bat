@@ -7,7 +7,6 @@ REM   1. Check for .NET SDK
 REM   2. Create Python virtual environment
 REM   3. Install Python dependencies
 REM   4. Build the TouchpadCapture.exe
-REM   5. Run a quick test
 REM ============================================================================
 
 echo.
@@ -98,24 +97,6 @@ echo [OK] TouchpadCapture.exe built successfully
 echo.
 
 REM ============================================================================
-REM Step 5: Quick Test
-REM ============================================================================
-echo [5/5] Running quick test...
-echo.
-echo This will test if the touchpad reader works.
-echo Touch your touchpad when prompted.
-echo.
-pause
-
-python test_simple.py
-
-if %ERRORLEVEL% NEQ 0 (
-    echo.
-    echo [WARNING] Test had issues, but setup is complete
-    echo You can still try running the programs manually
-)
-
-REM ============================================================================
 REM Setup Complete
 REM ============================================================================
 echo.
@@ -131,7 +112,11 @@ echo      python realtime_trainer.py
 echo.
 echo   2. Run biometric verification:
 echo      venv\Scripts\activate.bat
-echo      python realtime_verify.py
+echo      python realtime_verify.py --baseline baseline.pkl
+echo.
+echo   3. View raw touchpad data (optional):
+echo      venv\Scripts\activate.bat
+echo      python simple_windows_touchpad.py
 echo.
 echo ============================================================================
 echo.

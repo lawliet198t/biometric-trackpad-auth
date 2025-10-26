@@ -19,15 +19,14 @@ setup_windows.bat
 ```
 
 This will:
-1. Check for .NET SDK (install if missing)
+1. Check for .NET SDK
 2. Create Python virtual environment
 3. Install all dependencies
 4. Build TouchpadCapture.exe
-5. Run a quick test
 
 **That's it!** Everything is configured and ready to use.
 
-**→ See [QUICKSTART.md](QUICKSTART.md) for a complete 5-minute guide**
+**→ See [QUICKSTART.md](QUICKSTART.md) for a complete guide**
 
 ## Quick Start
 
@@ -35,14 +34,19 @@ This will:
 
 ```bash
 venv\Scripts\activate.bat
-python windows_biometric_trainer.py
+python realtime_trainer.py
 ```
 
-Follow the prompts to perform your gesture 5 times. The system will learn your unique pattern.
+Follow the prompts to perform your gesture multiple times. The system will learn your unique pattern and save it to `baseline.pkl`.
 
 ### 2. Test Authentication
 
-After training, the script automatically enters verification mode. Try your gesture to authenticate!
+```bash
+venv\Scripts\activate.bat
+python realtime_verify.py --baseline baseline.pkl
+```
+
+Try your gesture to authenticate! The system will show real-time verification scores.
 
 ### 3. View Raw Touchpad Data (Optional)
 
@@ -82,33 +86,28 @@ Your baseline is compared against new attempts using normalized distance metrics
 ### Essential Files (For Users)
 ```
 ├── setup_windows.bat              # One-command complete setup ⭐
-├── simple_windows_touchpad.py     # Core touchpad reader
-├── windows_biometric_trainer.py   # Training & verification ⭐
-├── test_simple.py                 # Quick test
+├── simple_windows_touchpad.py     # Core touchpad reader ⭐
+├── realtime_trainer.py            # Training with visualization ⭐
+├── realtime_verify.py             # Verification with real-time metrics ⭐
 ├── TouchpadCapture/               # C# Raw Input API wrapper
 │   ├── RawInputProgram.cs
 │   └── RawInputProgram.csproj
 └── requirements.txt               # Python dependencies
 ```
 
-### Debugging/Development Files
+### Additional Files
 ```
 ├── build_rawinput.bat             # Rebuild TouchpadCapture.exe only
 ├── rebuild.bat                    # Clean rebuild
 ├── check_dotnet.bat               # Check .NET installation
 ├── verify_setup.bat               # Verify project files
-├── setup_venv.bat                 # Setup Python venv only
-├── test_biometric_windows.py      # Test biometric capture
-├── simple_biometric_capture.py    # Biometric capture example
-├── detect_trackpad.py             # Detect trackpad device
-├── trackpad_lib.py                # Trackpad library
+├── detect_trackpad.py             # Detect trackpad device (Linux)
+├── trackpad_lib.py                # Trackpad library (Linux)
 ├── trackpad_visualizer.py         # Visualize touchpad input
-├── realtime_trainer.py            # Alternative trainer
-├── realtime_verify.py             # Alternative verifier
-└── advanced_biometrics.py         # Advanced features
+└── advanced_biometrics.py         # Advanced biometric features
 ```
 
-**For most users, you only need `setup_windows.bat` and `windows_biometric_trainer.py`!**
+**For most users, you only need `setup_windows.bat`, `realtime_trainer.py`, and `realtime_verify.py`!**
 
 ## Advanced Usage
 
@@ -158,14 +157,21 @@ dotnet publish RawInputProgram.csproj -c Release -o bin
 Make sure you have a Windows Precision Touchpad. Check in:
 Settings → Devices → Touchpad
 
+### pygame Not Working
+If you get pygame errors, make sure you're using the virtual environment:
+```bash
+venv\Scripts\activate.bat
+pip install pygame
+```
+
 ## Debugging Tools
 
 If you need to debug or test individual components:
 
-- `test_simple.py` - Quick touchpad test
-- `test_biometric_windows.py` - Test biometric capture
+- `simple_windows_touchpad.py` - View raw touchpad data
 - `build_rawinput.bat` - Rebuild TouchpadCapture.exe only
 - `check_dotnet.bat` - Check .NET installation
+- `trackpad_visualizer.py` - Visualize touchpad input with pygame
 
 ## Quick Reference
 
@@ -177,19 +183,19 @@ setup_windows.bat
 ### Train Your Biometric Pattern
 ```bash
 venv\Scripts\activate.bat
-python windows_biometric_trainer.py
+python realtime_trainer.py
+```
+
+### Verify Your Pattern
+```bash
+venv\Scripts\activate.bat
+python realtime_verify.py --baseline baseline.pkl
 ```
 
 ### View Raw Touchpad Data
 ```bash
 venv\Scripts\activate.bat
 python simple_windows_touchpad.py
-```
-
-### Run Quick Test
-```bash
-venv\Scripts\activate.bat
-python test_simple.py
 ```
 
 ### Rebuild TouchpadCapture.exe
@@ -199,20 +205,18 @@ build_rawinput.bat
 
 ## Files You Can Delete
 
-If you want to clean up the project after setup, these files are only for debugging:
+If you want to clean up the project after setup, these files are optional:
 - `build_rawinput.bat`, `rebuild.bat`, `check_dotnet.bat`, `verify_setup.bat`
-- `setup_venv.bat`, `setup_venv.sh`
-- `test_biometric_windows.py`, `test_detection.py`
-- `simple_biometric_capture.py`, `detect_trackpad.py`
-- `trackpad_lib.py`, `trackpad_visualizer.py`
-- `realtime_trainer.py`, `realtime_verify.py`
-- `advanced_biometrics.py`, `simple_windows_touchpad_v2.py`
+- `setup_venv.sh` (Linux only)
+- `detect_trackpad.py`, `trackpad_lib.py` (Linux only)
+- `trackpad_visualizer.py` (alternative visualizer)
+- `advanced_biometrics.py` (advanced features)
 
 **Keep these:**
 - `setup_windows.bat` (for reinstalling)
 - `simple_windows_touchpad.py` (core library)
-- `windows_biometric_trainer.py` (main program)
-- `test_simple.py` (quick test)
+- `realtime_trainer.py` (training program)
+- `realtime_verify.py` (verification program)
 - `TouchpadCapture/` folder (required)
 - `requirements.txt` (required)
 

@@ -4,17 +4,18 @@ This guide walks you through a complete demo of the biometric trackpad authentic
 
 ## Prerequisites
 
-- Linux system with trackpad
+- Windows 10 or 11 with Precision Touchpad
 - Python 3.7+ installed
+- .NET SDK 8.0+ installed
 - All dependencies installed (see [INSTALL.md](INSTALL.md))
 
 ## Demo Scenario: Signature Authentication
 
-In this demo, we'll set up a simple signature-based authentication system.
+In this demo, we'll set up a simple signature-based authentication system on Windows.
 
 ### Step 1: Choose Your Signature Gesture
 
-Think of a simple signature gesture you can draw on your trackpad. Good examples:
+Think of a simple signature gesture you can draw on your touchpad. Good examples:
 - Your initials
 - A simple shape (circle, triangle, zigzag)
 - A unique pattern
@@ -24,29 +25,24 @@ Think of a simple signature gesture you can draw on your trackpad. Good examples
 - Make it complex enough to be unique
 - Practice a few times before training
 
-### Step 2: Find Your Trackpad Device
+### Step 2: Setup (If Not Done)
 
 ```bash
-python3 trackpad_visualizer.py --list-devices
+setup_windows.bat
 ```
 
-Look for your trackpad in the output. Example:
-```
-Device: ELAN0670:00 04F3:3150 Touchpad
-Path: /dev/input/event14
-```
-
-Note your device path (e.g., `/dev/input/event14`).
+This will set up everything you need.
 
 ### Step 3: Practice Mode (Optional)
 
 Before training, practice your gesture:
 
 ```bash
-python3 trackpad_visualizer.py --device /dev/input/event14
+venv\Scripts\activate.bat
+python trackpad_visualizer.py
 ```
 
-- Draw your gesture on the trackpad
+- Draw your gesture on the touchpad
 - Press `SPACE` to capture
 - Check the metrics (duration, points, path length)
 - Press `C` to clear and try again
@@ -64,7 +60,8 @@ Press `Q` to quit when ready.
 Now train your baseline with 10 samples:
 
 ```bash
-python3 realtime_trainer.py --device /dev/input/event14 --samples 10
+venv\Scripts\activate.bat
+python realtime_trainer.py
 ```
 
 **Instructions:**
@@ -106,7 +103,8 @@ python3 realtime_trainer.py --device /dev/input/event14 --samples 10
 Now test your trained baseline:
 
 ```bash
-python3 realtime_verify.py --baseline baseline.pkl --device /dev/input/event14
+venv\Scripts\activate.bat
+python realtime_verify.py --baseline baseline.pkl
 ```
 
 **Try these scenarios:**
@@ -210,10 +208,11 @@ Test with multiple attempts:
 
 ```bash
 # Train with more samples for better accuracy
-python3 realtime_trainer.py --device /dev/input/event14 --samples 20
+venv\Scripts\activate.bat
+python realtime_trainer.py
 
 # Verify multiple times
-python3 realtime_verify.py --baseline baseline.pkl --device /dev/input/event14
+python realtime_verify.py --baseline baseline.pkl
 ```
 
 Try 10 verification attempts:
