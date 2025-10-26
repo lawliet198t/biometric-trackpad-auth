@@ -8,7 +8,7 @@
     <RootNamespace>TouchpadCapture</RootNamespace>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
-    <StartupObject>TouchpadCapture.BiometricMain</StartupObject>
+    <StartupObject>TouchpadCapture.SimpleVisualization</StartupObject>
     
     <!-- Self-contained: includes runtime, no separate install needed -->
     <SelfContained>true</SelfContained>
