@@ -25,14 +25,14 @@ class SimpleTouchpadReader:
     Uses timeout to detect finger lifts (since Windows doesn't send explicit lift events)
     """
     
-    def __init__(self, exe_path: str = "TouchpadCapture.exe", lift_timeout: float = 0.1):
+    def __init__(self, exe_path: str = "TouchpadCapture.exe", lift_timeout: float = 0.05):
         self.exe_path = self._find_exe(exe_path)
         self.process = None
         self.running = False
         
         # Raw contact data with timestamps
         self.current_contacts: Dict[int, Dict] = {}  # {contact_id: {X, Y, timestamp, last_seen}}
-        self.lift_timeout = lift_timeout  # 100ms default
+        self.lift_timeout = lift_timeout  # 50ms default for low latency
         
         # Threading for non-blocking reads
         self.data_queue = queue.Queue(maxsize=100)
@@ -267,7 +267,7 @@ def main():
                     print(f"\r[{time.strftime('%H:%M:%S')}] Fingers lifted" + " "*50)
                     last_contact_count = 0
             
-            time.sleep(0.01)  # 100 FPS polling, but throttled output
+            time.sleep(0.005)  # 200 FPS polling for low latency
     
     except KeyboardInterrupt:
         print("\n\nStopping...")
