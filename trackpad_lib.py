@@ -322,7 +322,7 @@ class TrackpadCapture:
     - Windows: Windows Touch API
     """
     
-    def __init__(self, device_path: Optional[str] = None, headless: bool = False):
+    def __init__(self, device_path: Optional[str] = None, headless: bool = True):
         # Platform detection
         self.platform = platform.system()
         self.is_windows = IS_WINDOWS and WINDOWS_AVAILABLE
