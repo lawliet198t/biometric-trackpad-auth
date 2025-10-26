@@ -495,6 +495,9 @@ namespace TouchpadCapture
         {
             try
             {
+                // Check for --headless flag
+                bool headless = args.Length > 0 && args[0] == "--headless";
+                
                 // Check if touchpad exists
                 if (!TouchpadHelper.Exists())
                 {
@@ -506,58 +509,64 @@ namespace TouchpadCapture
                     return;
                 }
                 
-                // Create WPF window with UI
+                // Create WPF window (hidden if headless)
                 var app = new Application();
                 window = new Window
                 {
-                    Title = "Touchpad Capture (Keep this window open)",
-                    Width = 400,
-                    Height = 300,
-                    WindowState = WindowState.Normal,
+                    Title = "Touchpad Capture" + (headless ? " (Headless)" : " (Keep this window open)"),
+                    Width = headless ? 1 : 400,
+                    Height = headless ? 1 : 300,
+                    WindowState = headless ? WindowState.Minimized : WindowState.Normal,
                     WindowStartupLocation = System.Windows.WindowStartupLocation.Manual,
                     Background = System.Windows.Media.Brushes.Black,
-                    Topmost = true,  // Always on top
-                    ShowInTaskbar = true
+                    Topmost = !headless,
+                    ShowInTaskbar = !headless,
+                    ShowActivated = !headless,
+                    Visibility = headless ? System.Windows.Visibility.Hidden : System.Windows.Visibility.Visible
                 };
                 
-                // Position window in top-right corner
-                window.Left = System.Windows.SystemParameters.PrimaryScreenWidth - window.Width - 20;
-                window.Top = 20;
-                
-                // Add text display
-                var textBlock = new System.Windows.Controls.TextBlock
+                if (!headless)
                 {
-                    Text = "Waiting for touch...",
-                    Foreground = System.Windows.Media.Brushes.Lime,
-                    FontSize = 16,
-                    FontFamily = new System.Windows.Media.FontFamily("Consolas"),
-                    Margin = new Thickness(20),
-                    TextWrapping = System.Windows.TextWrapping.Wrap
-                };
-                
-                window.Content = textBlock;
-                window.SourceInitialized += OnSourceInitialized;
-                window.Tag = textBlock;  // Store reference
-                
-                // UI update timer (doesn't send JSON, just updates window)
-                var uiTimer = new System.Windows.Threading.DispatcherTimer();
-                uiTimer.Interval = TimeSpan.FromMilliseconds(200);
-                uiTimer.Tick += (s, e) => {
-                    if (window.Tag is System.Windows.Controls.TextBlock textBlock)
+                    // Position window in top-right corner
+                    window.Left = System.Windows.SystemParameters.PrimaryScreenWidth - window.Width - 20;
+                    window.Top = 20;
+                    
+                    // Add text display
+                    var textBlock = new System.Windows.Controls.TextBlock
                     {
-                        var now = DateTime.UtcNow;
-                        if (now - lastJsonOutput > TimeSpan.FromMilliseconds(200))
+                        Text = "Waiting for touch...",
+                        Foreground = System.Windows.Media.Brushes.Lime,
+                        FontSize = 16,
+                        FontFamily = new System.Windows.Media.FontFamily("Consolas"),
+                        Margin = new Thickness(20),
+                        TextWrapping = System.Windows.TextWrapping.Wrap
+                    };
+                    
+                    window.Content = textBlock;
+                    window.Tag = textBlock;  // Store reference
+                    
+                    // UI update timer (doesn't send JSON, just updates window)
+                    var uiTimer = new System.Windows.Threading.DispatcherTimer();
+                    uiTimer.Interval = TimeSpan.FromMilliseconds(200);
+                    uiTimer.Tick += (s, e) => {
+                        if (window.Tag is System.Windows.Controls.TextBlock textBlock)
                         {
-                            textBlock.Text = "Waiting for touch...";
+                            var now = DateTime.UtcNow;
+                            if (now - lastJsonOutput > TimeSpan.FromMilliseconds(200))
+                            {
+                                textBlock.Text = "Waiting for touch...";
+                            }
                         }
-                    }
-                };
-                uiTimer.Start();
+                    };
+                    uiTimer.Start();
+                }
+                
+                window.SourceInitialized += OnSourceInitialized;
                 
                 OutputJson(new TouchOutput
                 {
                     Type = "ready",
-                    Message = "Raw Input touchpad capture ready - Touch your touchpad!"
+                    Message = "Raw Input touchpad capture ready" + (headless ? " (headless mode)" : " - Touch your touchpad!")
                 });
                 
                 app.Run(window);
@@ -617,24 +626,21 @@ namespace TouchpadCapture
                         });
                     }
                     
-                    // Update UI (throttled to 10 FPS)
-                    if (now - lastUiUpdate > uiUpdateInterval)
+                    // Update UI (throttled to 10 FPS) - only if window has UI
+                    if (now - lastUiUpdate > uiUpdateInterval && window.Tag is System.Windows.Controls.TextBlock textBlock)
                     {
-                        if (window.Tag is System.Windows.Controls.TextBlock textBlock)
+                        if (contacts.Length > 0)
                         {
-                            if (contacts.Length > 0)
+                            var text = $"✓ {contacts.Length} finger(s)\n\n";
+                            foreach (var contact in contacts)
                             {
-                                var text = $"✓ {contacts.Length} finger(s)\n\n";
-                                foreach (var contact in contacts)
-                                {
-                                    text += $"#{contact.ContactId}: X={contact.X} Y={contact.Y}\n";
-                                }
-                                textBlock.Text = text;
+                                text += $"#{contact.ContactId}: X={contact.X} Y={contact.Y}\n";
                             }
-                            else
-                            {
-                                textBlock.Text = "Waiting for touch...";
-                            }
+                            textBlock.Text = text;
+                        }
+                        else
+                        {
+                            textBlock.Text = "Waiting for touch...";
                         }
                         lastUiUpdate = now;
                     }
