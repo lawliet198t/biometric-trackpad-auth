@@ -12,6 +12,8 @@ Usage:
 import subprocess
 import json
 import time
+import threading
+import queue
 from pathlib import Path
 from typing import List, Dict, Optional
 
@@ -19,6 +21,7 @@ from typing import List, Dict, Optional
 class SimpleTouchpadReader:
     """
     Minimal touchpad reader - just gets raw X, Y, ContactId values
+    Uses threading to avoid blocking
     """
     
     def __init__(self, exe_path: str = "TouchpadCapture.exe"):
@@ -28,6 +31,10 @@ class SimpleTouchpadReader:
         
         # Raw contact data
         self.current_contacts: Dict[int, Dict] = {}  # {contact_id: {X, Y, timestamp}}
+        
+        # Threading for non-blocking reads
+        self.data_queue = queue.Queue(maxsize=100)
+        self.reader_thread = None
     
     def _find_exe(self, exe_name: str) -> str:
         """Find the TouchpadCapture executable"""
@@ -47,6 +54,24 @@ class SimpleTouchpadReader:
             "Build it with: build_touchpad.bat"
         )
     
+    def _reader_thread_func(self):
+        """Background thread to read from subprocess"""
+        while self.running:
+            try:
+                line = self.process.stdout.readline()
+                if not line:
+                    break
+                
+                line = line.strip()
+                if line:
+                    try:
+                        self.data_queue.put(line, block=False)
+                    except queue.Full:
+                        # Queue full, skip this line
+                        pass
+            except:
+                break
+    
     def start(self) -> bool:
         """Start reading touchpad data"""
         try:
@@ -63,6 +88,11 @@ class SimpleTouchpadReader:
             )
             
             self.running = True
+            
+            # Start reader thread
+            self.reader_thread = threading.Thread(target=self._reader_thread_func, daemon=True)
+            self.reader_thread.start()
+            
             print("✓ Touchpad reader started")
             return True
             
@@ -79,18 +109,12 @@ class SimpleTouchpadReader:
             None if no data available
             Empty list [] if no contacts (fingers lifted)
         """
-        if not self.process or not self.running:
+        if not self.running:
             return None
         
         try:
-            # Non-blocking read
-            line = self.process.stdout.readline()
-            if not line:
-                return None
-            
-            line = line.strip()
-            if not line:
-                return None
+            # Try to get data from queue (non-blocking)
+            line = self.data_queue.get(block=False)
             
             # Parse JSON
             try:
@@ -129,6 +153,9 @@ class SimpleTouchpadReader:
                 print(f"[EXE] {line}")
                 return None
         
+        except queue.Empty:
+            # No data available right now
+            return None
         except Exception as e:
             print(f"Read error: {e}")
             return None
