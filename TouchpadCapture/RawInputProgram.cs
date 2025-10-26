@@ -661,16 +661,18 @@ namespace TouchpadCapture
         
         private static readonly System.Text.Json.JsonSerializerOptions jsonOptions = new()
         {
-            WriteIndented = false  // Compact JSON for speed
+            WriteIndented = false,  // Compact JSON for speed
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never
         };
         
         private static void OutputJson(TouchOutput output)
         {
             try
             {
+                // Ultra-fast: Write directly to stdout buffer
                 var json = JsonSerializer.Serialize(output, jsonOptions);
-                Console.WriteLine(json);
-                // Don't flush every time - let buffer handle it
+                Console.Out.WriteLine(json);
+                Console.Out.Flush();  // Immediate flush for low latency
             }
             catch (Exception ex)
             {

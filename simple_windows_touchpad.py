@@ -17,6 +17,13 @@ import queue
 from pathlib import Path
 from typing import List, Dict, Optional
 
+# Try to use faster JSON parser
+try:
+    import orjson
+    USE_ORJSON = True
+except ImportError:
+    USE_ORJSON = False
+
 
 class SimpleTouchpadReader:
     """
@@ -34,8 +41,8 @@ class SimpleTouchpadReader:
         self.current_contacts: Dict[int, Dict] = {}  # {contact_id: {X, Y, timestamp, last_seen}}
         self.lift_timeout = lift_timeout  # 20ms default for ultra-low latency
         
-        # Threading for non-blocking reads
-        self.data_queue = queue.Queue(maxsize=100)
+        # Threading for non-blocking reads (small queue for low latency)
+        self.data_queue = queue.Queue(maxsize=10)  # Small queue = low latency
         self.reader_thread = None
     
     def _find_exe(self, exe_name: str) -> str:
@@ -61,7 +68,15 @@ class SimpleTouchpadReader:
         )
     
     def _reader_thread_func(self):
-        """Background thread to read from subprocess"""
+        """Background thread to read from subprocess (high priority)"""
+        # Set thread priority to high for low latency
+        try:
+            import os
+            if hasattr(os, 'nice'):
+                os.nice(-10)  # Higher priority on Unix
+        except:
+            pass
+        
         while self.running:
             try:
                 line = self.process.stdout.readline()
@@ -71,9 +86,14 @@ class SimpleTouchpadReader:
                 line = line.strip()
                 if line:
                     try:
+                        # Drop old data if queue full (keep only latest)
+                        if self.data_queue.full():
+                            try:
+                                self.data_queue.get_nowait()  # Remove oldest
+                            except:
+                                pass
                         self.data_queue.put(line, block=False)
                     except queue.Full:
-                        # Queue full, skip this line
                         pass
             except:
                 break
@@ -124,9 +144,12 @@ class SimpleTouchpadReader:
             # Try to get data from queue (non-blocking)
             line = self.data_queue.get(block=False)
             
-            # Parse JSON
+            # Parse JSON (use faster parser if available)
             try:
-                data = json.loads(line)
+                if USE_ORJSON:
+                    data = orjson.loads(line)
+                else:
+                    data = json.loads(line)
                 
                 if data.get('Type') == 'ready':
                     print(f"✓ {data.get('Message')}")
