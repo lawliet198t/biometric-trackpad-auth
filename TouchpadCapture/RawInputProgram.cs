@@ -539,8 +539,20 @@ namespace TouchpadCapture
                 window.SourceInitialized += OnSourceInitialized;
                 window.Tag = textBlock;  // Store reference
                 
-                // Don't use heartbeat - it causes gaps
-                // Instead, we'll track contact IDs and detect when they disappear
+                // UI update timer (doesn't send JSON, just updates window)
+                var uiTimer = new System.Windows.Threading.DispatcherTimer();
+                uiTimer.Interval = TimeSpan.FromMilliseconds(200);
+                uiTimer.Tick += (s, e) => {
+                    if (window.Tag is System.Windows.Controls.TextBlock textBlock)
+                    {
+                        var now = DateTime.UtcNow;
+                        if (now - lastJsonOutput > TimeSpan.FromMilliseconds(200))
+                        {
+                            textBlock.Text = "Waiting for touch...";
+                        }
+                    }
+                };
+                uiTimer.Start();
                 
                 OutputJson(new TouchOutput
                 {
