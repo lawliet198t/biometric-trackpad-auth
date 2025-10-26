@@ -514,28 +514,37 @@ namespace TouchpadCapture
                 window = new Window
                 {
                     Title = "Touchpad Capture" + (headless ? " (Headless)" : " (Keep this window open)"),
-                    Width = 1,
-                    Height = 1,
-                    Left = -10000,  // Off-screen
-                    Top = -10000,
-                    WindowStyle = headless ? System.Windows.WindowStyle.None : System.Windows.WindowStyle.SingleBorderWindow,
-                    WindowState = headless ? WindowState.Minimized : WindowState.Normal,
                     WindowStartupLocation = System.Windows.WindowStartupLocation.Manual,
                     Background = System.Windows.Media.Brushes.Black,
-                    Topmost = !headless,
-                    ShowInTaskbar = !headless,
                     ShowActivated = false,  // Never activate
-                    Visibility = headless ? System.Windows.Visibility.Hidden : System.Windows.Visibility.Visible,
                     ResizeMode = System.Windows.ResizeMode.NoResize
                 };
                 
-                if (!headless)
+                if (headless)
                 {
-                    // Position window in top-right corner
+                    // Headless mode - completely hidden
+                    window.Width = 1;
+                    window.Height = 1;
+                    window.Left = -10000;  // Off-screen
+                    window.Top = -10000;
+                    window.WindowStyle = System.Windows.WindowStyle.None;
+                    window.WindowState = WindowState.Minimized;
+                    window.Topmost = false;
+                    window.ShowInTaskbar = false;
+                    window.Visibility = System.Windows.Visibility.Hidden;
+                }
+                else
+                {
+                    // Normal mode - visible window
                     window.Width = 400;
                     window.Height = 300;
                     window.Left = System.Windows.SystemParameters.PrimaryScreenWidth - window.Width - 20;
                     window.Top = 20;
+                    window.WindowStyle = System.Windows.WindowStyle.SingleBorderWindow;
+                    window.WindowState = WindowState.Normal;
+                    window.Topmost = true;
+                    window.ShowInTaskbar = true;
+                    window.Visibility = System.Windows.Visibility.Visible;
                     
                     // Add text display
                     var textBlock = new System.Windows.Controls.TextBlock
@@ -568,6 +577,14 @@ namespace TouchpadCapture
                 }
                 
                 window.SourceInitialized += OnSourceInitialized;
+                
+                // Prevent window from ever showing in headless mode
+                if (headless)
+                {
+                    window.Loaded += (s, e) => {
+                        window.Hide();
+                    };
+                }
                 
                 OutputJson(new TouchOutput
                 {
