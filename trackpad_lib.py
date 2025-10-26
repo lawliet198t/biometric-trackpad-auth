@@ -330,7 +330,7 @@ class TrackpadCapture:
         
         # Windows backend
         if self.is_windows:
-            self.backend = SimpleTouchpadReader(lift_timeout=0.02)  # 20ms for ultra-low latency
+            self.backend = SimpleTouchpadReader(lift_timeout=0.015)  # 15ms for maximum performance
             self.device_path = "Windows Touch API"
             print(f"🔍 Using Simple Windows Touchpad (optimized)")
         
@@ -522,7 +522,7 @@ class TrackpadCapture:
                     
                     previous_contacts = current_contacts
                 
-                await asyncio.sleep(0.002)  # 500 FPS polling for ultra-low latency
+                await asyncio.sleep(0.001)  # 1000 FPS polling for maximum performance
         
         except Exception as e:
             print(f"Windows event processing error: {e}")
