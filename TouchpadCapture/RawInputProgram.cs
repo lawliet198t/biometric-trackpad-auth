@@ -498,6 +498,16 @@ namespace TouchpadCapture
                 // Check for --headless flag
                 bool headless = args.Length > 0 && args[0] == "--headless";
                 
+                // Debug: Output to stderr so we can see it
+                if (headless)
+                {
+                    Console.Error.WriteLine("[DEBUG] Headless mode ENABLED");
+                }
+                else
+                {
+                    Console.Error.WriteLine("[DEBUG] Headless mode DISABLED");
+                }
+                
                 // Check if touchpad exists
                 if (!TouchpadHelper.Exists())
                 {
@@ -523,15 +533,16 @@ namespace TouchpadCapture
                 if (headless)
                 {
                     // Headless mode - completely hidden
-                    window.Width = 1;
-                    window.Height = 1;
-                    window.Left = -10000;  // Off-screen
-                    window.Top = -10000;
+                    window.Width = 0;
+                    window.Height = 0;
+                    window.Left = -32000;  // Far off-screen
+                    window.Top = -32000;
                     window.WindowStyle = System.Windows.WindowStyle.None;
                     window.WindowState = WindowState.Minimized;
                     window.Topmost = false;
                     window.ShowInTaskbar = false;
-                    window.Visibility = System.Windows.Visibility.Hidden;
+                    window.Visibility = System.Windows.Visibility.Collapsed;  // Use Collapsed instead of Hidden
+                    window.Opacity = 0;  // Make it transparent
                 }
                 else
                 {
@@ -578,11 +589,24 @@ namespace TouchpadCapture
                 
                 window.SourceInitialized += OnSourceInitialized;
                 
-                // Prevent window from ever showing in headless mode
+                // In headless mode, ensure window never shows
                 if (headless)
                 {
-                    window.Loaded += (s, e) => {
+                    // Hook into the window's state changed event to keep it hidden
+                    window.StateChanged += (s, e) => {
+                        if (window.WindowState != WindowState.Minimized)
+                        {
+                            window.WindowState = WindowState.Minimized;
+                        }
                         window.Hide();
+                    };
+                    
+                    // Hook into visibility changed to keep it hidden
+                    window.IsVisibleChanged += (s, e) => {
+                        if (window.IsVisible)
+                        {
+                            window.Hide();
+                        }
                     };
                 }
                 
