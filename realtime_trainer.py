@@ -139,7 +139,8 @@ async def main():
     visualizer = GestureVisualizer(
         width=1200,
         height=800,
-        title="Advanced Biometric Verifier"
+        title="Advanced Biometric Verifier",
+        auto_size=True  # Automatically adapt to touchpad dimensions
     )
     verifier = AdvancedBiometricVerifier(training_samples=args.samples)
     

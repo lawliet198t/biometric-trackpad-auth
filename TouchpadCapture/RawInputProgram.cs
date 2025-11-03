@@ -588,10 +588,7 @@ namespace TouchpadCapture
         // Python will track contact IDs and detect lifts
         
         private static DateTime lastUiUpdate = DateTime.MinValue;
-        private static DateTime lastJsonOutput = DateTime.MinValue;
         private static readonly TimeSpan uiUpdateInterval = TimeSpan.FromMilliseconds(100);
-        private static readonly TimeSpan jsonOutputInterval = TimeSpan.FromMilliseconds(0); // No throttling - output immediately!
-        private static HashSet<int> lastSeenContactIds = new HashSet<int>();
         
         private static IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
@@ -639,21 +636,13 @@ namespace TouchpadCapture
                         lastUiUpdate = now;
                     }
                     
-                    // Track current contact IDs
-                    var currentContactIds = new HashSet<int>(contactList.Select(c => c.ContactId));
-                    
-                    // Output JSON (throttled to 60 FPS)
-                    if (now - lastJsonOutput > jsonOutputInterval)
+                    // Output JSON IMMEDIATELY - no throttling for multi-finger accuracy
+                    // Always output - even if empty (for lift detection)
+                    OutputJson(new TouchOutput
                     {
-                        // Always output - even if empty (for lift detection)
-                        OutputJson(new TouchOutput
-                        {
-                            Type = "contacts",
-                            Contacts = contactList
-                        });
-                        lastJsonOutput = now;
-                        lastSeenContactIds = currentContactIds;
-                    }
+                        Type = "contacts",
+                        Contacts = contactList
+                    });
                 }
             }
             return IntPtr.Zero;

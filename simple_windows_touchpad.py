@@ -41,6 +41,13 @@ class SimpleTouchpadReader:
         self.current_contacts: Dict[int, Dict] = {}  # {contact_id: {X, Y, timestamp, last_seen}}
         self.lift_timeout = lift_timeout  # 15ms default for maximum performance
         
+        # Touchpad coordinate ranges (auto-detected)
+        self.coord_min_x = 0
+        self.coord_max_x = 65535  # Default Windows Raw Input range
+        self.coord_min_y = 0
+        self.coord_max_y = 65535
+        self.coord_range_detected = False
+        
         # Threading for non-blocking reads (small queue for low latency)
         self.data_queue = queue.Queue(maxsize=10)  # Small queue = low latency
         self.reader_thread = None
@@ -164,10 +171,20 @@ class SimpleTouchpadReader:
                         contact_id = contact['ContactId']
                         seen_ids.add(contact_id)
                         
+                        x = contact['X']
+                        y = contact['Y']
+                        
+                        # Auto-detect coordinate ranges
+                        if not self.coord_range_detected or len(self.current_contacts) == 0:
+                            self.coord_min_x = min(self.coord_min_x, x)
+                            self.coord_max_x = max(self.coord_max_x, x)
+                            self.coord_min_y = min(self.coord_min_y, y)
+                            self.coord_max_y = max(self.coord_max_y, y)
+                        
                         self.current_contacts[contact_id] = {
                             'ContactId': contact_id,
-                            'X': contact['X'],
-                            'Y': contact['Y'],
+                            'X': x,
+                            'Y': y,
                             'Timestamp': contact['Timestamp'],
                             'last_seen': current_time
                         }
@@ -239,6 +256,29 @@ class SimpleTouchpadReader:
             {contact_id: {X, Y, Timestamp}, ...}
         """
         return self.current_contacts.copy()
+    
+    def get_coordinate_ranges(self) -> Dict[str, int]:
+        """
+        Get detected coordinate ranges
+        
+        Returns:
+            {min_x, max_x, min_y, max_y, width, height}
+        """
+        return {
+            'min_x': self.coord_min_x,
+            'max_x': self.coord_max_x,
+            'min_y': self.coord_min_y,
+            'max_y': self.coord_max_y,
+            'width': self.coord_max_x - self.coord_min_x,
+            'height': self.coord_max_y - self.coord_min_y
+        }
+    
+    def mark_range_detected(self):
+        """Mark that coordinate range has been detected (stops auto-updating min/max)"""
+        self.coord_range_detected = True
+        print(f"✓ Coordinate range detected:")
+        print(f"  X: {self.coord_min_x} - {self.coord_max_x} (width: {self.coord_max_x - self.coord_min_x})")
+        print(f"  Y: {self.coord_min_y} - {self.coord_max_y} (height: {self.coord_max_y - self.coord_min_y})")
     
     def stop(self):
         """Stop reading"""

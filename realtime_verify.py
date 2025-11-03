@@ -162,7 +162,8 @@ async def main():
     visualizer = GestureVisualizer(
         width=1400,
         height=900,
-        title="Real-Time Verification with Display"
+        title="Real-Time Verification with Display",
+        auto_size=True  # Automatically adapt to touchpad dimensions
     )
     verifier = RealtimeVerifier(baseline_path=args.baseline, verbose=args.verbose)
     

@@ -7,10 +7,12 @@ This system captures your unique touchpad usage patterns (finger movements, pres
 ## Features
 
 - **True multi-touch**: Captures data from all fingers simultaneously
-- **Raw coordinates**: Direct X, Y values from hardware (0-65535 range)
+- **Raw coordinates**: Direct X, Y values from hardware
 - **Contact tracking**: Tracks individual fingers across frames
 - **High precision**: No OS processing or filtering
 - **Biometric features**: Extracts unique patterns from your touchpad usage
+- **Auto-adaptive display**: Window automatically matches your touchpad's aspect ratio
+- **Cross-device compatible**: Works with different touchpad sizes and coordinate ranges
 
 ## One-Command Setup (Windows)
 
@@ -61,6 +63,15 @@ Touch your touchpad to see raw values:
 [14:23:45] 2 finger(s): [0: X=32768, Y=16384] [1: X=45000, Y=20000]
 ```
 
+### 4. Test Touchpad Dimensions (Optional)
+
+```bash
+venv\Scripts\activate.bat
+python test_touchpad_dimensions.py
+```
+
+This will detect your touchpad's coordinate range and show the optimal window size for visualization.
+
 ## How It Works
 
 ### 1. Raw Input API
@@ -89,6 +100,7 @@ Your baseline is compared against new attempts using normalized distance metrics
 ├── simple_windows_touchpad.py     # Core touchpad reader ⭐
 ├── realtime_trainer.py            # Training with visualization ⭐
 ├── realtime_verify.py             # Verification with real-time metrics ⭐
+├── test_touchpad_dimensions.py    # Test touchpad dimension detection
 ├── TouchpadCapture/               # C# Raw Input API wrapper
 │   ├── RawInputProgram.cs
 │   └── RawInputProgram.csproj
@@ -164,6 +176,12 @@ venv\Scripts\activate.bat
 pip install pygame
 ```
 
+### Visualization Window Doesn't Match Touchpad
+The window should automatically adapt to your touchpad's aspect ratio. If it doesn't:
+1. Run `python test_touchpad_dimensions.py` to verify detection
+2. Touch all corners of your touchpad during the 5-second detection period
+3. The programs will automatically use the optimal window size
+
 ## Debugging Tools
 
 If you need to debug or test individual components:
@@ -200,8 +218,10 @@ python simple_windows_touchpad.py
 
 ### Rebuild TouchpadCapture.exe
 ```bash
-build_rawinput.bat
+rebuild_touchpad.bat
 ```
+
+Note: Use `rebuild_touchpad.bat` for the latest multi-finger fixes.
 
 ## Files You Can Delete
 

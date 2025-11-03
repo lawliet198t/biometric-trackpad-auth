@@ -409,6 +409,14 @@ class TrackpadCapture:
     
     def normalize_coords(self, x: int, y: int) -> tuple:
         """Normalize trackpad coordinates to screen coordinates"""
+        # For Windows, get ranges from backend
+        if self.is_windows:
+            ranges = self.backend.get_coordinate_ranges()
+            self.abs_x_min = ranges['min_x']
+            self.abs_x_max = ranges['max_x']
+            self.abs_y_min = ranges['min_y']
+            self.abs_y_max = ranges['max_y']
+        
         if self.abs_x_max > self.abs_x_min:
             norm_x = (x - self.abs_x_min) / (self.abs_x_max - self.abs_x_min)
         else:
@@ -445,6 +453,23 @@ class TrackpadCapture:
         self.completed_tracks.clear()
         if self.is_windows:
             self.backend.current_gesture = []
+    
+    def get_touchpad_dimensions(self) -> tuple:
+        """
+        Get touchpad coordinate dimensions
+        
+        Returns:
+            (width, height) tuple of touchpad coordinate range
+        """
+        if self.is_windows:
+            # Wait a bit for coordinate detection if just started
+            if not self.backend.coord_range_detected:
+                time.sleep(0.5)  # Give it time to detect
+            ranges = self.backend.get_coordinate_ranges()
+            return (ranges['width'], ranges['height'])
+        elif self.is_linux:
+            return (self.abs_x_max - self.abs_x_min, self.abs_y_max - self.abs_y_min)
+        return (65535, 65535)  # Default
     
     def get_all_tracks(self) -> List:
         """Get all tracks (active + completed)"""
@@ -485,8 +510,11 @@ class TrackpadCapture:
                     if len(contacts) > 0:
                         for contact in contacts:
                             contact_id = contact['ContactId']
-                            x = float(contact['X'])
-                            y = float(contact['Y'])
+                            raw_x = contact['X']
+                            raw_y = contact['Y']
+                            
+                            # Normalize coordinates to screen space
+                            x, y = self.normalize_coords(raw_x, raw_y)
                             
                             current_contacts.add(contact_id)
                             
@@ -597,6 +625,44 @@ class TrackpadCapture:
         except Exception as e:
             print(f"Device read error: {e}")
 
+def calculate_window_size_from_touchpad(touchpad_width: int, touchpad_height: int, 
+                                        max_width: int = 1400, max_height: int = 900) -> tuple:
+    """
+    Calculate optimal window size based on touchpad dimensions
+    
+    Args:
+        touchpad_width: Touchpad coordinate width
+        touchpad_height: Touchpad coordinate height
+        max_width: Maximum window width
+        max_height: Maximum window height
+    
+    Returns:
+        (width, height) tuple for window
+    """
+    # Calculate aspect ratio
+    aspect_ratio = touchpad_width / touchpad_height if touchpad_height > 0 else 1.5
+    
+    # Start with max dimensions
+    width = max_width
+    height = max_height
+    
+    # Adjust to match aspect ratio while staying within max bounds
+    if aspect_ratio > (max_width / max_height):
+        # Touchpad is wider - constrain by width
+        width = max_width
+        height = int(max_width / aspect_ratio)
+    else:
+        # Touchpad is taller - constrain by height
+        height = max_height
+        width = int(max_height * aspect_ratio)
+    
+    # Ensure minimum size
+    width = max(800, width)
+    height = max(600, height)
+    
+    return width, height
+
+
 class GestureVisualizer:
     """
     Handles pygame visualization of gestures
@@ -608,10 +674,12 @@ class GestureVisualizer:
     - Keyboard input handling
     """
     
-    def __init__(self, width: int = 1200, height: int = 800, title: str = "Trackpad Gesture Capture"):
+    def __init__(self, width: int = 1200, height: int = 800, title: str = "Trackpad Gesture Capture",
+                 auto_size: bool = False):
         self.width = width
         self.height = height
         self.title = title
+        self.auto_size = auto_size  # If True, will resize based on touchpad dimensions
         
         # Pygame components
         self.screen = None
@@ -626,6 +694,16 @@ class GestureVisualizer:
         self.status_color = (128, 128, 128)
         self.info_lines = []
         self.custom_ui_callback = None
+    
+    def adapt_to_touchpad(self, touchpad_width: int, touchpad_height: int):
+        """Adapt window size to match touchpad aspect ratio"""
+        if self.auto_size:
+            self.width, self.height = calculate_window_size_from_touchpad(
+                touchpad_width, touchpad_height
+            )
+            print(f"✓ Window adapted to touchpad: {self.width}x{self.height}")
+            print(f"  Touchpad dimensions: {touchpad_width}x{touchpad_height}")
+            print(f"  Aspect ratio: {touchpad_width/touchpad_height:.2f}")
     
     def init_pygame(self):
         """Initialize pygame display and fonts"""
@@ -733,13 +811,18 @@ async def run_capture_loop(capture: TrackpadCapture,
         on_gesture_complete: Callback(tracks) when capture stops
         on_key_press: Callback(key) for custom key handling
     """
-    # Set screen dimensions
-    capture.screen_width = visualizer.width
-    capture.screen_height = visualizer.height
-    
     # Open device
     if not capture.open_device():
         return
+    
+    # Adapt visualizer to touchpad dimensions if auto_size enabled
+    if visualizer.auto_size:
+        touchpad_width, touchpad_height = capture.get_touchpad_dimensions()
+        visualizer.adapt_to_touchpad(touchpad_width, touchpad_height)
+    
+    # Set screen dimensions
+    capture.screen_width = visualizer.width
+    capture.screen_height = visualizer.height
     
     # Initialize pygame
     visualizer.init_pygame()

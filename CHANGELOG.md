@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Adaptive Window Sizing 🎯
+- **Auto-detection of touchpad dimensions**
+  - Automatically detects coordinate ranges from touchpad
+  - Calculates optimal window size based on touchpad aspect ratio
+  - Works across different touchpad models and sizes
+  - `test_touchpad_dimensions.py`: Test script to verify detection
+
+- **Adaptive visualization**
+  - Window automatically matches touchpad proportions
+  - Better 1:1 mapping between touchpad and screen
+  - Improved gesture visualization accuracy
+  - Enabled by default in training and verification programs
+
+### Fixed - Multi-Finger Tracking 🖐️
+- **Removed JSON output throttling in C# exe**
+  - Eliminated frame skipping during multi-finger gestures
+  - Immediate data output for smooth tracking
+  - ~1000 FPS data rate (was ~60 FPS)
+
+- **Added coordinate normalization**
+  - Raw touchpad coordinates now properly normalized to screen space
+  - Multi-finger gestures display correctly in visualization
+  - Dynamic range detection from Windows backend
+  - `rebuild_touchpad.bat`: Script to rebuild exe with fixes
+
 ### Current State - Windows Raw Input Implementation 🎉
 
 - **Core Implementation**
