@@ -43,10 +43,15 @@ class SimpleTouchpadReader:
         
         # Touchpad coordinate ranges (auto-detected)
         self.coord_min_x = 0
-        self.coord_max_x = 65535  # Default Windows Raw Input range
+        self.coord_max_x = 9600  # Better default based on common touchpads (3:2 aspect)
         self.coord_min_y = 0
-        self.coord_max_y = 65535
+        self.coord_max_y = 6400
         self.coord_range_detected = False
+        
+        # Auto-lock settings to prevent coordinate jumping
+        self.auto_lock_enabled = True
+        self.auto_lock_sample_count = 0
+        self.auto_lock_threshold = 50  # Lock after 50 samples with touches
         
         # Threading for non-blocking reads (small queue for low latency)
         self.data_queue = queue.Queue(maxsize=10)  # Small queue = low latency
@@ -174,12 +179,19 @@ class SimpleTouchpadReader:
                         x = contact['X']
                         y = contact['Y']
                         
-                        # Auto-detect coordinate ranges
-                        if not self.coord_range_detected or len(self.current_contacts) == 0:
+                        # Auto-detect coordinate ranges (with auto-lock to prevent jumping)
+                        if not self.coord_range_detected:
                             self.coord_min_x = min(self.coord_min_x, x)
                             self.coord_max_x = max(self.coord_max_x, x)
                             self.coord_min_y = min(self.coord_min_y, y)
                             self.coord_max_y = max(self.coord_max_y, y)
+                            
+                            # Auto-lock after enough samples
+                            if self.auto_lock_enabled:
+                                self.auto_lock_sample_count += 1
+                                if self.auto_lock_sample_count >= self.auto_lock_threshold:
+                                    self.mark_range_detected()
+                                    print(f"✓ Coordinate ranges auto-locked after {self.auto_lock_sample_count} samples")
                         
                         self.current_contacts[contact_id] = {
                             'ContactId': contact_id,

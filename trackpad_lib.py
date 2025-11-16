@@ -408,25 +408,38 @@ class TrackpadCapture:
         return False
     
     def normalize_coords(self, x: int, y: int) -> tuple:
-        """Normalize trackpad coordinates to screen coordinates"""
-        # For Windows, get ranges from backend
+        """
+        Normalize trackpad coordinates to screen coordinates
+        
+        Uses locked coordinate ranges to prevent visual artifacts from
+        changing normalization mid-gesture.
+        """
+        # For Windows, sync ranges from backend (these are now locked after detection)
         if self.is_windows:
             ranges = self.backend.get_coordinate_ranges()
-            self.abs_x_min = ranges['min_x']
-            self.abs_x_max = ranges['max_x']
-            self.abs_y_min = ranges['min_y']
-            self.abs_y_max = ranges['max_y']
+            # Only update if we haven't set them yet or if they're more accurate
+            if self.abs_x_max == self.abs_x_min or not self.backend.coord_range_detected:
+                self.abs_x_min = ranges['min_x']
+                self.abs_x_max = ranges['max_x']
+                self.abs_y_min = ranges['min_y']
+                self.abs_y_max = ranges['max_y']
         
+        # Normalize to 0-1 range
         if self.abs_x_max > self.abs_x_min:
             norm_x = (x - self.abs_x_min) / (self.abs_x_max - self.abs_x_min)
+            # Clamp to prevent out-of-range values
+            norm_x = max(0.0, min(1.0, norm_x))
         else:
             norm_x = 0.5
         
         if self.abs_y_max > self.abs_y_min:
             norm_y = (y - self.abs_y_min) / (self.abs_y_max - self.abs_y_min)
+            # Clamp to prevent out-of-range values
+            norm_y = max(0.0, min(1.0, norm_y))
         else:
             norm_y = 0.5
         
+        # Scale to screen coordinates
         screen_x = norm_x * self.screen_width
         screen_y = norm_y * self.screen_height
         
@@ -462,14 +475,52 @@ class TrackpadCapture:
             (width, height) tuple of touchpad coordinate range
         """
         if self.is_windows:
-            # Wait a bit for coordinate detection if just started
-            if not self.backend.coord_range_detected:
-                time.sleep(0.5)  # Give it time to detect
             ranges = self.backend.get_coordinate_ranges()
             return (ranges['width'], ranges['height'])
         elif self.is_linux:
             return (self.abs_x_max - self.abs_x_min, self.abs_y_max - self.abs_y_min)
-        return (65535, 65535)  # Default
+        return (9600, 6400)  # Better default (3:2 aspect ratio)
+    
+    def wait_for_dimension_detection(self, timeout: float = 3.0) -> bool:
+        """
+        Wait for touchpad dimensions to be detected (Windows only)
+        
+        Args:
+            timeout: Maximum time to wait in seconds
+        
+        Returns:
+            True if dimensions detected, False if timeout
+        """
+        if not self.is_windows:
+            return True  # Linux reads dimensions immediately
+        
+        print("🔍 Detecting touchpad dimensions...")
+        print("   Please swipe across your entire touchpad")
+        
+        start_time = time.time()
+        last_sample_count = 0
+        
+        while time.time() - start_time < timeout:
+            if self.backend.coord_range_detected:
+                return True
+            
+            # Show progress
+            current_samples = self.backend.auto_lock_sample_count
+            if current_samples != last_sample_count:
+                remaining = self.backend.auto_lock_threshold - current_samples
+                print(f"   Samples: {current_samples}/{self.backend.auto_lock_threshold} ({remaining} more needed)")
+                last_sample_count = current_samples
+            
+            time.sleep(0.1)
+        
+        # Timeout - use what we have
+        if self.backend.auto_lock_sample_count > 0:
+            print(f"⚠️  Timeout - using detected ranges from {self.backend.auto_lock_sample_count} samples")
+            self.backend.mark_range_detected()
+            return True
+        
+        print("⚠️  No touches detected - using default dimensions")
+        return False
     
     def get_all_tracks(self) -> List:
         """Get all tracks (active + completed)"""
@@ -817,6 +868,10 @@ async def run_capture_loop(capture: TrackpadCapture,
     
     # Adapt visualizer to touchpad dimensions if auto_size enabled
     if visualizer.auto_size:
+        # For Windows, wait for dimension detection
+        if capture.is_windows:
+            capture.wait_for_dimension_detection(timeout=3.0)
+        
         touchpad_width, touchpad_height = capture.get_touchpad_dimensions()
         visualizer.adapt_to_touchpad(touchpad_width, touchpad_height)
     
