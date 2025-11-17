@@ -588,16 +588,19 @@ namespace TouchpadCapture
         // Python will track contact IDs and detect lifts
         
         private static DateTime lastUiUpdate = DateTime.MinValue;
+        private static DateTime lastJsonOutput = DateTime.MinValue;
         private static readonly TimeSpan uiUpdateInterval = TimeSpan.FromMilliseconds(100);
         
         private static IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
             if (msg == TouchpadHelper.WM_INPUT)
             {
-                var contacts = TouchpadHelper.ParseInput(lParam);
-                
-                if (contacts != null)
+                try
                 {
+                    var contacts = TouchpadHelper.ParseInput(lParam);
+                    
+                    if (contacts != null)
+                    {
                     var now = DateTime.UtcNow;
                     var contactList = new List<ContactData>();
                     long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -642,6 +645,17 @@ namespace TouchpadCapture
                     {
                         Type = "contacts",
                         Contacts = contactList
+                    });
+                    lastJsonOutput = now;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log error but don't crash
+                    OutputJson(new TouchOutput
+                    {
+                        Type = "error",
+                        Message = $"Parse error: {ex.Message}"
                     });
                 }
             }

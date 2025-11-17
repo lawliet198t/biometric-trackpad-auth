@@ -11,26 +11,47 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-REM Build the simple program directly
+REM Build the Raw Input program
 cd TouchpadCapture
-echo Building SimpleProgram.cs...
-dotnet build SimpleProgram.cs -o bin
+echo Building RawInputProgram.csproj...
+dotnet publish RawInputProgram.csproj -c Release -o bin
 
 if %ERRORLEVEL% EQU 0 (
     echo.
     echo Copying to root directory...
     cd ..
-    copy "TouchpadCapture\bin\TouchpadCapture.exe" "." /Y
+    
+    REM Copy EXE (try both names)
+    copy "TouchpadCapture\bin\TouchpadCapture.exe" "." /Y 2>nul
+    if not exist "TouchpadCapture.exe" (
+        copy "TouchpadCapture\bin\RawInputProgram.exe" "TouchpadCapture.exe" /Y
+    )
+    
+    REM Copy ALL dependencies
+    echo Copying dependencies...
     copy "TouchpadCapture\bin\*.dll" "." /Y 2>nul
+    copy "TouchpadCapture\bin\*.json" "." /Y 2>nul
+    
+    REM Copy runtime folder if it exists (for self-contained)
+    if exist "TouchpadCapture\bin\runtimes" (
+        echo Copying runtime files...
+        xcopy "TouchpadCapture\bin\runtimes" "runtimes\" /E /I /Y /Q >nul 2>nul
+    )
     
     echo.
     echo ========================================
     echo SUCCESS! TouchpadCapture.exe built
     echo ========================================
     echo.
+    echo Files in root directory:
+    dir TouchpadCapture.exe 2>nul
+    echo.
     echo Next steps:
     echo   1. Run: python simple_windows_touchpad.py
-    echo   2. Touch your touchpad to see raw values
+    echo   2. Touch your touchpad to see RAW values
+    echo.
+    echo NOTE: Use TouchpadCapture\bin\TouchpadCapture.exe
+    echo       if the root copy doesn't work
     echo.
 ) else (
     echo.
