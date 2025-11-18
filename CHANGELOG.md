@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security & Reliability Updates 🔒
+- **Security Upgrade: JSON Baselines**
+  - Switched from insecure `pickle` serialization to standard `JSON`
+  - Prevents arbitrary code execution vulnerabilities
+  - **Breaking Change**: Old `.pkl` baselines are no longer supported. Please retrain.
+
+- **Fixed: Windows Visualization Bug**
+  - Fixed issue where lines wouldn't draw immediately on some systems
+  - Implemented safe default coordinate ranges while auto-detection runs
+  - Ensures immediate visual feedback during training/verification
+
+- **Fixed: Data Loss on High-Frequency Inputs**
+  - Increased input buffer size (10 -> 200 frames)
+  - Prevents gaps/stuttering in lines during micro-lags
+  - Improved tracking accuracy for fast gestures
+
+- **Fixed: Biometric Math**
+  - Corrected "Jerk" calculation time-alignment
+  - Improved accuracy of smoothness metrics
+
 ### Added - Adaptive Window Sizing 🎯
 - **Auto-detection of touchpad dimensions**
   - Automatically detects coordinate ranges from touchpad

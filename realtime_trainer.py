@@ -94,10 +94,10 @@ class AdvancedBiometricVerifier:
             self.is_training_mode = False
             
             # Save baseline
-            import pickle
-            baseline_file = 'baseline.pkl'
-            with open(baseline_file, 'wb') as f:
-                pickle.dump(self.baseline, f)
+            import json
+            baseline_file = 'baseline.json'
+            with open(baseline_file, 'w') as f:
+                json.dump(self.baseline.to_dict(), f, indent=2)
             print(f"\n✓ Baseline saved to {baseline_file}")
             print("\n✓ Baseline learned! Ready to verify.")
             print(f"\nTo use this baseline later:")

@@ -5,7 +5,7 @@ Real-Time Verification with Live Display
 Load a pre-trained baseline and verify gestures with real-time metrics display.
 
 Usage:
-  python3 realtime_verify.py --baseline baseline.pkl
+  python3 realtime_verify.py --baseline baseline.json
 
 Shows live updates as you draw:
 - Duration, points, path length
@@ -17,7 +17,7 @@ import asyncio
 import time
 import numpy as np
 import pygame
-import pickle
+import json
 import sys
 from typing import Dict, List
 
@@ -67,8 +67,9 @@ class RealtimeVerifier:
     def load_baseline(self, path: str) -> BiometricBaseline:
         """Load baseline from file"""
         try:
-            with open(path, 'rb') as f:
-                baseline = pickle.load(f)
+            with open(path, 'r') as f:
+                data = json.load(f)
+                baseline = BiometricBaseline.from_dict(data)
             
             print(f"✓ Loaded baseline from {path}")
             print(f"  Duration: {baseline.duration_mean:.3f}s ± {baseline.duration_std:.3f}s")
@@ -80,7 +81,7 @@ class RealtimeVerifier:
             print(f"❌ Error loading baseline: {e}")
             print(f"\nTo create a baseline, run:")
             print(f"  python3 realtime_trainer.py --samples 10")
-            print(f"  (This will save baseline.pkl automatically)")
+            print(f"  (This will save baseline.json automatically)")
             sys.exit(1)
     
     def update_realtime_metrics(self, tracks: List[GestureTrack]):
@@ -152,7 +153,7 @@ class RealtimeVerifier:
 async def main():
     import argparse
     parser = argparse.ArgumentParser(description="Real-Time Verifier with Display")
-    parser.add_argument('--baseline', required=True, help='Baseline file (baseline.pkl)')
+    parser.add_argument('--baseline', required=True, help='Baseline file (baseline.json)')
     parser.add_argument('--device', default=None, help='Input device (auto-detects if not specified)')
     parser.add_argument('--verbose', action='store_true', help='Enable verbose realtime logging (throttled to 1/sec)')
     args = parser.parse_args()

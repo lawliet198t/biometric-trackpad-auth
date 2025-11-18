@@ -39,13 +39,13 @@ venv\Scripts\activate.bat
 python realtime_trainer.py
 ```
 
-Follow the prompts to perform your gesture multiple times. The system will learn your unique pattern and save it to `baseline.pkl`.
+Follow the prompts to perform your gesture multiple times. The system will learn your unique pattern and save it to `baseline.json`.
 
 ### 2. Test Authentication
 
 ```bash
 venv\Scripts\activate.bat
-python realtime_verify.py --baseline baseline.pkl
+python realtime_verify.py --baseline baseline.json
 ```
 
 Try your gesture to authenticate! The system will show real-time verification scores.
@@ -207,7 +207,7 @@ python realtime_trainer.py
 ### Verify Your Pattern
 ```bash
 venv\Scripts\activate.bat
-python realtime_verify.py --baseline baseline.pkl
+python realtime_verify.py --baseline baseline.json
 ```
 
 ### View Raw Touchpad Data

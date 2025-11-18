@@ -37,7 +37,7 @@ Follow the prompts:
 2. Press SPACE to capture each sample
 3. Repeat 10 times (be consistent!)
 4. The system learns your unique pattern
-5. Your baseline is saved to `baseline.pkl`
+5. Your baseline is saved to `baseline.json`
 
 **Tips for best results:**
 - Use 2-3 fingers
@@ -52,7 +52,7 @@ Follow the prompts:
 
 ```bash
 venv\Scripts\activate.bat
-python realtime_verify.py --baseline baseline.pkl
+python realtime_verify.py --baseline baseline.json
 ```
 
 Try your gesture to authenticate:
@@ -96,7 +96,7 @@ python realtime_trainer.py
 ### Verify with Existing Baseline
 ```bash
 venv\Scripts\activate.bat
-python realtime_verify.py --baseline baseline.pkl
+python realtime_verify.py --baseline baseline.json
 ```
 
 ### Rebuild TouchpadCapture.exe

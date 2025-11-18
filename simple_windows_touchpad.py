@@ -42,10 +42,10 @@ class SimpleTouchpadReader:
         self.lift_timeout = lift_timeout  # 15ms default for maximum performance
         
         # Touchpad coordinate ranges (auto-detected)
-        self.coord_min_x = 0
-        self.coord_max_x = 9600  # Better default based on common touchpads (3:2 aspect)
-        self.coord_min_y = 0
-        self.coord_max_y = 6400
+        self.coord_min_x = float('inf')
+        self.coord_max_x = float('-inf')
+        self.coord_min_y = float('inf')
+        self.coord_max_y = float('-inf')
         self.coord_range_detected = False
         
         # Auto-lock settings to prevent coordinate jumping
@@ -53,8 +53,8 @@ class SimpleTouchpadReader:
         self.auto_lock_sample_count = 0
         self.auto_lock_threshold = 50  # Lock after 50 samples with touches
         
-        # Threading for non-blocking reads (small queue for low latency)
-        self.data_queue = queue.Queue(maxsize=10)  # Small queue = low latency
+        # Threading for non-blocking reads (larger queue for high-frequency input)
+        self.data_queue = queue.Queue(maxsize=200)  # Increased buffer to prevent data loss
         self.reader_thread = None
     
     def _find_exe(self, exe_name: str) -> str:
@@ -64,7 +64,9 @@ class SimpleTouchpadReader:
             exe_name,  # Root directory
             f"TouchpadCapture/bin/Release/net8.0-windows/{exe_name}",
             f"bin/{exe_name}",
-            Path(__file__).parent / exe_name,
+            # Add more robust search paths
+            str(Path(__file__).parent / "TouchpadCapture" / "bin" / "Release" / "net8.0-windows" / exe_name),
+            str(Path(__file__).parent / exe_name),
         ]
         
         for path in possible_paths:
@@ -107,7 +109,8 @@ class SimpleTouchpadReader:
                         self.data_queue.put(line, block=False)
                     except queue.Full:
                         pass
-            except:
+            except Exception as e:
+                print(f"Reader thread error: {e}")
                 break
     
     def start(self) -> bool:
@@ -276,13 +279,24 @@ class SimpleTouchpadReader:
         Returns:
             {min_x, max_x, min_y, max_y, width, height}
         """
+        # Return safe defaults if ranges haven't been detected yet (still infinite)
+        if self.coord_min_x == float('inf') or self.coord_max_x == float('-inf'):
+            return {
+                'min_x': 0,
+                'max_x': 9600,  # Default 3:2 aspect ratio
+                'min_y': 0,
+                'max_y': 6400,
+                'width': 9600,
+                'height': 6400
+            }
+            
         return {
-            'min_x': self.coord_min_x,
-            'max_x': self.coord_max_x,
-            'min_y': self.coord_min_y,
-            'max_y': self.coord_max_y,
-            'width': self.coord_max_x - self.coord_min_x,
-            'height': self.coord_max_y - self.coord_min_y
+            'min_x': int(self.coord_min_x),
+            'max_x': int(self.coord_max_x),
+            'min_y': int(self.coord_min_y),
+            'max_y': int(self.coord_max_y),
+            'width': int(self.coord_max_x - self.coord_min_x),
+            'height': int(self.coord_max_y - self.coord_min_y)
         }
     
     def mark_range_detected(self):

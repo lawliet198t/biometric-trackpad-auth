@@ -40,9 +40,11 @@ class AdvancedFeatureExtractor:
     - Path length and complexity
     """
     
+    HESITATION_THRESHOLD_VELOCITY = 50.0  # pixels/second
+    HESITATION_MIN_DURATION = 0.01  # 10ms
+
     def __init__(self):
-        self.hesitation_threshold_velocity = 50.0  # pixels/second
-        self.hesitation_min_duration = 0.01  # 10ms
+        pass
     
     def calculate_velocity(self, points: List[TouchPoint]) -> np.ndarray:
         """
@@ -101,7 +103,11 @@ class AdvancedFeatureExtractor:
         
         jerks = []
         for i in range(1, len(accelerations)):
-            dt = points[i+2].timestamp - points[i+1].timestamp
+            # Fix: Align time delta with acceleration interval (p[i] -> p[i+1])
+            # Acceleration[i] is from v[i]->v[i+1] (approx t[i]->t[i+1])
+            # Acceleration[i-1] is from v[i-1]->v[i] (approx t[i-1]->t[i])
+            # So change in acceleration happens over t[i] -> t[i+1]
+            dt = points[i+1].timestamp - points[i].timestamp
             if dt > 0:
                 da = accelerations[i] - accelerations[i-1]
                 jerk = da / dt
@@ -168,7 +174,7 @@ class AdvancedFeatureExtractor:
         hesitation_start_idx = 0
         
         for i, vel in enumerate(velocities):
-            if vel < self.hesitation_threshold_velocity:
+            if vel < self.HESITATION_THRESHOLD_VELOCITY:
                 if not in_hesitation:
                     # Start of hesitation
                     in_hesitation = True
@@ -179,7 +185,7 @@ class AdvancedFeatureExtractor:
                     in_hesitation = False
                     duration = points[i+1].timestamp - points[hesitation_start_idx+1].timestamp
                     
-                    if duration >= self.hesitation_min_duration:
+                    if duration >= self.HESITATION_MIN_DURATION:
                         hesitations.append({
                             'start_idx': hesitation_start_idx,
                             'end_idx': i,
@@ -189,7 +195,7 @@ class AdvancedFeatureExtractor:
         # Handle case where gesture ends in hesitation
         if in_hesitation and len(points) > hesitation_start_idx + 1:
             duration = points[-1].timestamp - points[hesitation_start_idx+1].timestamp
-            if duration >= self.hesitation_min_duration:
+            if duration >= self.HESITATION_MIN_DURATION:
                 hesitations.append({
                     'start_idx': hesitation_start_idx,
                     'end_idx': len(velocities) - 1,
@@ -383,6 +389,39 @@ class BiometricBaseline:
         print(f"  Hesitations: {self.hesitation_count_mean:.1f} ± {self.hesitation_count_std:.1f}")
         
         return True
+
+    def to_dict(self) -> Dict:
+        """Convert baseline to dictionary for JSON serialization"""
+        return {
+            'duration_mean': self.duration_mean,
+            'duration_std': self.duration_std,
+            'path_length_mean': self.path_length_mean,
+            'path_length_std': self.path_length_std,
+            'velocity_cv_mean': self.velocity_cv_mean,
+            'velocity_cv_std': self.velocity_cv_std,
+            'jerk_cv_mean': self.jerk_cv_mean,
+            'jerk_cv_std': self.jerk_cv_std,
+            'hesitation_count_mean': self.hesitation_count_mean,
+            'hesitation_count_std': self.hesitation_count_std,
+            'is_trained': self.is_trained
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'BiometricBaseline':
+        """Create baseline from dictionary"""
+        baseline = cls()
+        baseline.duration_mean = data.get('duration_mean', 0.0)
+        baseline.duration_std = data.get('duration_std', 0.0)
+        baseline.path_length_mean = data.get('path_length_mean', 0.0)
+        baseline.path_length_std = data.get('path_length_std', 0.0)
+        baseline.velocity_cv_mean = data.get('velocity_cv_mean', 0.0)
+        baseline.velocity_cv_std = data.get('velocity_cv_std', 0.0)
+        baseline.jerk_cv_mean = data.get('jerk_cv_mean', 0.0)
+        baseline.jerk_cv_std = data.get('jerk_cv_std', 0.0)
+        baseline.hesitation_count_mean = data.get('hesitation_count_mean', 0.0)
+        baseline.hesitation_count_std = data.get('hesitation_count_std', 0.0)
+        baseline.is_trained = data.get('is_trained', False)
+        return baseline
 
 
 class MultiStageVerifier:
