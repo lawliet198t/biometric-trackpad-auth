@@ -684,8 +684,8 @@ def calculate_window_size_from_touchpad(touchpad_width: int, touchpad_height: in
     Args:
         touchpad_width: Touchpad coordinate width
         touchpad_height: Touchpad coordinate height
-        max_width: Maximum window width
-        max_height: Maximum window height
+        max_width: Maximum window width (screen constraint)
+        max_height: Maximum window height (screen constraint)
     
     Returns:
         (width, height) tuple for window
@@ -693,23 +693,23 @@ def calculate_window_size_from_touchpad(touchpad_width: int, touchpad_height: in
     # Calculate aspect ratio
     aspect_ratio = touchpad_width / touchpad_height if touchpad_height > 0 else 1.5
     
-    # Start with max dimensions
-    width = max_width
-    height = max_height
+    # Ensure max dimensions don't exceed screen (with margin)
+    target_width = min(max_width, 1600)
+    target_height = min(max_height, 1000)
     
     # Adjust to match aspect ratio while staying within max bounds
-    if aspect_ratio > (max_width / max_height):
+    if aspect_ratio > (target_width / target_height):
         # Touchpad is wider - constrain by width
-        width = max_width
-        height = int(max_width / aspect_ratio)
+        width = target_width
+        height = int(target_width / aspect_ratio)
     else:
         # Touchpad is taller - constrain by height
-        height = max_height
-        width = int(max_height * aspect_ratio)
+        height = target_height
+        width = int(target_height * aspect_ratio)
     
     # Ensure minimum size
-    width = max(800, width)
-    height = max(600, height)
+    width = max(400, width)
+    height = max(300, height)
     
     return width, height
 
@@ -749,12 +749,29 @@ class GestureVisualizer:
     def adapt_to_touchpad(self, touchpad_width: int, touchpad_height: int):
         """Adapt window size to match touchpad aspect ratio"""
         if self.auto_size:
+            # Get screen resolution if possible (requires pygame init)
+            if not pygame.get_init():
+                pygame.init()
+            
+            info = pygame.display.Info()
+            screen_w = info.current_w
+            screen_h = info.current_h
+            
+            # Limit to 85% of screen size
+            max_w = int(screen_w * 0.85)
+            max_h = int(screen_h * 0.85)
+            
             self.width, self.height = calculate_window_size_from_touchpad(
-                touchpad_width, touchpad_height
+                touchpad_width, touchpad_height, max_w, max_h
             )
+            
+            # Resize window if already created
+            if self.screen:
+                self.screen = pygame.display.set_mode((self.width, self.height))
+            
             print(f"✓ Window adapted to touchpad: {self.width}x{self.height}")
+            print(f"  Screen resolution: {screen_w}x{screen_h}")
             print(f"  Touchpad dimensions: {touchpad_width}x{touchpad_height}")
-            print(f"  Aspect ratio: {touchpad_width/touchpad_height:.2f}")
     
     def init_pygame(self):
         """Initialize pygame display and fonts"""
@@ -792,11 +809,12 @@ class GestureVisualizer:
         # Draw lines connecting points
         points_to_draw = [(p.x, p.y) for p in track.points]
         if len(points_to_draw) >= 2:
-            pygame.draw.lines(self.screen, color, False, points_to_draw, 3)
+            # Thicker lines for better visibility (5px)
+            pygame.draw.lines(self.screen, color, False, points_to_draw, 5)
         
         # Draw dots at sample points
-        for point in track.points[::5]:  # Every 5th point
-            pygame.draw.circle(self.screen, color, (int(point.x), int(point.y)), 2)
+        for point in track.points[::3]:  # Every 3rd point (more frequent)
+            pygame.draw.circle(self.screen, color, (int(point.x), int(point.y)), 3)
     
     def draw_ui(self, capture: TrackpadCapture):
         """Draw standard UI elements"""

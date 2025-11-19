@@ -290,6 +290,20 @@ class SimpleTouchpadReader:
                 'height': 6400
             }
             
+        # If range is too small (e.g. just started detecting), return defaults to prevent visual collapse
+        width = self.coord_max_x - self.coord_min_x
+        height = self.coord_max_y - self.coord_min_y
+        
+        if width < 100 or height < 100:
+             return {
+                'min_x': int(self.coord_min_x) if self.coord_min_x != float('inf') else 0,
+                'max_x': int(self.coord_min_x) + 9600 if self.coord_min_x != float('inf') else 9600,
+                'min_y': int(self.coord_min_y) if self.coord_min_y != float('inf') else 0,
+                'max_y': int(self.coord_min_y) + 6400 if self.coord_min_y != float('inf') else 6400,
+                'width': 9600,
+                'height': 6400
+            }
+            
         return {
             'min_x': int(self.coord_min_x),
             'max_x': int(self.coord_max_x),
