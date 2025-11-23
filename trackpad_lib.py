@@ -27,6 +27,7 @@ import platform
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Callable, Union
 import pygame
+import numpy as np
 
 # Platform detection
 IS_LINUX = platform.system() == 'Linux'
@@ -306,6 +307,43 @@ class GestureTrack:
     def add_point(self, x: float, y: float, timestamp: float, timestamp_ns: int):
         """Add a point to this track"""
         self.points.append(TouchPoint(x, y, timestamp, timestamp_ns))
+    
+    def get_tensor_representation(self, sequence_length: int = 128, 
+                                  normalization: str = 'standard') -> Optional['np.ndarray']:
+        """
+        Convert gesture to fixed-length tensor for deep learning.
+        
+        This method transforms the variable-length gesture into a standardized
+        (sequence_length, 3) numpy array suitable for neural network input.
+        
+        Args:
+            sequence_length: Fixed output length (default: 128)
+            normalization: Normalization method ('standard' or 'minmax')
+        
+        Returns:
+            Numpy array of shape (sequence_length, 3) or None if gesture too short
+        """
+        # Lazy import to avoid circular dependency
+        try:
+            from tensor_processor import TensorProcessor
+        except ImportError:
+            print("❌ tensor_processor module not found. Please ensure tensor_processor.py is in the same directory.")
+            return None
+        
+        # Validate gesture has enough points
+        if len(self.points) < 2:
+            return None
+        
+        # Create processor and process gesture
+        processor = TensorProcessor(sequence_length=sequence_length, 
+                                    normalization=normalization)
+        
+        try:
+            tensor = processor.process(self.points)
+            return tensor
+        except ValueError as e:
+            print(f"⚠️  Failed to process gesture: {e}")
+            return None
 
 class TrackpadCapture:
     """
