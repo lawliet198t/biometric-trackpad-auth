@@ -3,3 +3,7 @@ pygame>=2.0.0
 evdev>=1.4.0; sys_platform == 'linux'
 pywin32>=300; sys_platform == 'win32'
 pythonnet>=3.0.0; sys_platform == 'win32'
+
+# Deep Learning dependencies
+torch>=2.0.0
+torchvision>=0.15.0
